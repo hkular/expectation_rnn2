@@ -2,6 +2,8 @@
 
 ## Environment
 
+python = 3.12.2 <br />
+pytorch = 2.5.1 <br />
 conda env create -f environment.yml <br />
 conda env activate torch_rnn
 
