@@ -38,8 +38,10 @@ batch_size = 1000                 # number of trials in each batch
 acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_thresh during target window is correct
 weighted_loss = 0                       #  0 = nw_mse l2 or 1 = weighted mse
 num_cues = 2
-cue_on = 100
-cue_dur = 150
+cue_on = 75
+# %%
+cue_dur = T-cue_on
+
 
 if task_type == 'rdk':
     fn_stem = 'trained_models_rdk/gonogo_'
@@ -50,7 +52,7 @@ elif task_type == 'rdk_repro_cue':
 
 # Preset some conditions
 afcs = [6]
-amps = [0.6]
+amps = [1.0]
 results = []
 
 #--------------------------
@@ -69,7 +71,7 @@ for n_afc in afcs:
     for stim_prob in stim_probs:
         
         # set stim_prob at eval based on this stim_prob
-        stim_prob_to_eval = stim_prob
+        stim_prob_to_eval = 1/n_afc
     
     
         for stim_amps in amps:
@@ -90,7 +92,7 @@ for n_afc in afcs:
                       
             
             # Look up how many models to run for this condition
-            n_models = count_models(n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_type, directory = os.getcwd())
+            n_models = 3#count_models(n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_type, directory = os.getcwd())
         
             #--------------------------
             # loop over trained models 

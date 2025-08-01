@@ -22,7 +22,7 @@ from expectation_rnn import *
 
 
 # example cmd line...
-# python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 
+# python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 --stim_amps 1.0 --stim_prob_mode biased
 
 # parse input args...
 parser = argparse.ArgumentParser(description='Training RDK Task RNNs')
@@ -173,7 +173,7 @@ learning_rate = 0.01
 # multiple GPUs
 #--------------------------------
 n_models = args.N           
-model_offset = 0
+model_offset = 1
 
 for m_num in range( model_offset,model_offset+n_models ):
 

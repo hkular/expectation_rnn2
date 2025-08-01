@@ -12,6 +12,7 @@
 import numpy as np
 import sys
 import os
+import json
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from scipy.io import loadmat
@@ -24,6 +25,8 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from helper_funcs import *
 from rdk_task import RDKtask
+from model_count import count_models
+
 
 # In[2]:
 
@@ -36,10 +39,10 @@ n_afc = 6                         # number of stimulus alternatives
 T = 200                           # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
-stim_prob = 1/n_afc               # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
-stim_prob_to_eval = stim_prob     # eval the model at this prob level (stim_prob is used to determine which trained model to use)
-stim_amps_train = 0.6            # can make this a list of amps and loop over... 
-stim_amps = 0.6
+stim_prob = 0.8               # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+stim_prob_to_eval = 1/n_afc     # eval the model at this prob level (stim_prob is used to determine which trained model to use)
+stim_amps_train = 1.0            # can make this a list of amps and loop over... 
+stim_amps = 1.0
 stim_noise_train = 0.1
 stim_noise = 0.1                  # magnitude of randn background noise in the stim channel for eval
 batch_size = 1000                 # number of trials in each batch
@@ -47,18 +50,12 @@ acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_
 weighted_loss = 0                 #  0 = nw_mse l2 or 1 = weighted mse
 noise_internal = 0.1              # trained under 0.1 try 0.25 
 num_cues = 2
-cue_on = 100
-cue_dur = 150
+cue_on = stim_on+stim_dur
+cue_dur = T-cue_on
+out_size = n_afc  
+fn_stem = 'trained_models_rdk_repro_cue/reprocue_'
 
-if task_type == 'rdk':
-    fn_stem = 'trained_models_rdk/gonogo_'
-    out_size = 1
-elif task_type == 'rdk_reproduction':
-    fn_stem = 'trained_models_rdk_reproduction/repro_'
-    out_size = n_afc  
-elif task_type == 'rdk_repro_cue':
-    fn_stem = 'trained_models_rdk_repro_cue/reprocue_'
-    out_size = n_afc  
+    
 
 
 #--------------------------
@@ -80,14 +77,14 @@ max_iter = 5000    # max iterations
 #--------------------------
 settings = {'task' : task_type, 'n_afc' : n_afc, 'T' : T, 'stim_on' : stim_on, 'stim_dur' : stim_dur,
             'stim_prob' : stim_prob_to_eval, 'stim_amp' : stim_amps, 'stim_noise' : stim_noise, 'batch_size' : batch_size, 
-            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':150}
+            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':cue_dur}
 
 # create the task object
 task = RDKtask( settings )
 
 
 # just pick first model for now
-m_num = 1
+m_num = 0
     
 # build a file name...
 if weighted_loss == 0:
@@ -103,14 +100,12 @@ else:
 # load the trained model, set to eval, requires_grad == False
 net = load_model( fn,device )
 # load cue scramble matrix
-if task_type == 'rdk_repro_cue':
-    with open(f'{fn[:-3]}.json', "r") as infile:
-       _ , rnn_settings = json.load(infile)
-    sr_scram_list = rnn_settings['sr_scram']
-    sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
-    sr_scram = np.array(sr_scram_list)
-else:
-    sr_scram = []
+with open(f'{fn[:-3]}.json', "r") as infile:
+   _ , rnn_settings = json.load(infile)
+sr_scram_list = rnn_settings['sr_scram']
+sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
+sr_scram = np.array(sr_scram_list)
+
 
 print(f'loaded model {m_num}')
 
@@ -118,58 +113,13 @@ print(f'loaded model {m_num}')
 net.recurrent_layer.noise = noise_internal
 
 # eval a batch of trials using the trained model
-outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc = eval_model( net, task, sr_scram )
+outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc, cues = eval_model( net, task, sr_scram )
 
 # s_label is a diff shape for cue version, deal with if statement later
 s_label_int = np.argmax(s_label, axis=1)
+unique_labels = np.unique(s_label_int)
 
-# ### do PCA and plot for a single layer - separate plots per label
-fig = plt.figure(figsize=(18, 10))
-fr = h1 # shape (1000, 250, 200) trials x time x units
-labels = s_label_int  # labels are 1D, shape (1000,)trials
-
-
-unique_labels = np.unique(labels)
-
-for i, label in enumerate(unique_labels):
-    # Create a subplot for each label
-    ax = fig.add_subplot(2, 3, i + 1, projection='3d')  # Adjust rows/cols as needed
-
-    # Filter trials for this label
-    label_idx = labels == label
-    fr_label = fr[:,label_idx,:]  # trials for this label, shape: trials x time x units
-
-    # Reshape trials into time-units
-    fr_col = fr_label.reshape((fr_label.shape[0] * fr_label.shape[1], fr_label.shape[2]))
-
-    # Perform PCA
-    pca = PCA(n_components=3)
-    pcs = pca.fit_transform(fr_col)  # shape: (total_points, 3)
-
-    # Reshape to identify time points per trial
-    pcs_r = pcs.reshape((fr_label.shape[0], fr_label.shape[1], 3))  # (trials, time, components)
-
-    # Flatten data for plotting all points
-    pcs_flat = pcs_r.reshape((-1, 3))  # shape: (trials * time, 3)
-
-    # Scatter all points
-    #ax.scatter(pcs_flat[:, 0], pcs_flat[:, 1], pcs_flat[:, 2], alpha=0.5, label=f'Label {label}')
-
-    # Mark the start and end points
-    ax.scatter(pcs_r[:, 0, 0], pcs_r[:, 0, 1], pcs_r[:, 0, 2], color='green', s=50, label='Start')  # First time point
-    ax.scatter(pcs_r[:, -1, 0], pcs_r[:, -1, 1], pcs_r[:, -1, 2], color='red', s=50, label='End')  # Last time point
-
-    # Set labels and title
-    ax.set_title(f'Label {label}')
-    ax.set_xlabel('PC1')
-    ax.set_ylabel('PC2')
-    ax.set_zlabel('PC3')
-    ax.legend()
-    ax.grid(True)
-
-# Adjust layout
-plt.tight_layout()
-plt.show()
+# %%
 
 
 # ### labels in one plot clouds of start and end points
@@ -223,6 +173,8 @@ for i, label in enumerate(unique_labels):
 # Adjust layout
 plt.tight_layout()
 plt.show()
+
+# %%
 
 
 # ### Compare start and end points - stats
