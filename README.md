@@ -2,7 +2,7 @@
 
 ## Environment
 
-conda env create -f environment.yml
+conda env create -f environment.yml <br />
 conda env activate torch_rnn
 
 
