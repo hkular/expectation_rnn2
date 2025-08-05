@@ -17,8 +17,6 @@ import argparse
 # import class to make model inputs (defines different tasks, and can add other tasks easily using this framework)
 from rdk_task import RDKtask
 
-# import class to make model, make hidden layer, and loss function
-from expectation_rnn import *
 
 
 # example cmd line...
@@ -45,6 +43,9 @@ parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
 parser.add_argument('--stim_prob_mode', type=str, default='biased',
     help='Stimulus probability(e.g., biased or unbiased or both)')
 args = parser.parse_args()
+parser.add_argument('--cue_layer', type=str, required = True,
+    help='Which layer receives cue 1 or 3?')
+args = parser.parse_args()
 
 
 # check for available devices 
@@ -67,6 +68,17 @@ else:
 #--------------------------------
 # RNN Params
 #--------------------------------
+# import class to make model, make hidden layer, and loss function
+
+
+cue_layer = args.cue_layer
+if cue_layer == 1:
+    from expectation_rnn_cue1 import *
+elif cue_layer == 3:
+    from expectation_rnn_cue3 import *
+else:
+    print('Invalid cue layer')
+
 
 # explicitly set random seed manually for different model instantiations? 
 set_rand_seed = 1
