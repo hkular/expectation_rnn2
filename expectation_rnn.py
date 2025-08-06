@@ -217,7 +217,7 @@ class RNN(torch.nn.Module):
             # (self.h_layer1( r1 )) (i.e. state before 
             # the updating that is happening at the current time step). Mask for Dale's 
             # applied in the h_layer forward method...
-            if (self.task_type == 'rdk_repro_cue' & self.cue_layer_num == 1):
+            if self.task_type == 'rdk_repro_cue' and self.cue_layer_num == 1:
                 cue_input1 = self.cue_layer( cues[t,:,:] )
             else:
                 cue_input1 = 0
@@ -241,7 +241,7 @@ class RNN(torch.nn.Module):
                 fb_32 = torch.matmul( r3, torch.matmul( self.h_layer3.mfb_32,self.h_layer3.wfb_32 ) )
 
             # next x for layer 2
-            if (self.task_type == 'rdk_repro_cue' & self.cue_layer_num == 2):
+            if self.task_type == 'rdk_repro_cue' and self.cue_layer_num == 2:
                 cue_input2 = self.cue_layer( cues[t,:,:] )
             else:
                 cue_input2 = 0
@@ -259,7 +259,7 @@ class RNN(torch.nn.Module):
                 ff_23 = torch.matmul( r2, torch.matmul( self.h_layer2.mff_23,self.h_layer2.wff_23) )
                 
             # next x for layer 3
-            if (self.task_type == 'rdk_repro_cue' & self.cue_layer_num == 3):
+            if self.task_type == 'rdk_repro_cue' and self.cue_layer_num == 3:
                 cue_input3 = self.cue_layer( cues[t,:,:] )
             else:
                 cue_input3 = 0
