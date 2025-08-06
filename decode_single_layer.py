@@ -127,7 +127,10 @@ for m_num in np.arange( n_models ):
 
         
     # load the trained model, set to eval, requires_grad == False
-    net = load_model( fn,device )
+    if device == 'cuda':
+        net = load_model( fn, cuda_num )
+    elif device == 'cpu':   
+        net = load_model( fn,device )
     print(f'loaded model {m_num}')
     
     # load cue scramble matrix

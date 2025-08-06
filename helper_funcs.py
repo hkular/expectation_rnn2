@@ -12,7 +12,7 @@ import torch
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import LinearSVC
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
+from sklearn.linear_model import RidgeClassifier
 
 # load the model, turn off grads
 def load_model( fn,device ): 
@@ -27,6 +27,20 @@ def load_model( fn,device ):
     for param in model.parameters():
         param.requires_grad = False
     
+    return model
+
+
+def load_model_cuda( fn, cuda_num ):
+    # set the dfault device for all torch stuff...
+    cuda_device = torch.device( f'cuda:{cuda_num}' )
+    torch.set_default_device( cuda_device )
+    # load model to devi
+    model = torch.load( fn,map_location=torch.device( f'cuda:{cuda_num}' ),weights_only=False )
+    # set it to eval (not training)
+    model.eval()
+    # set requires grad = false
+    for param in model.parameters():
+        param.requires_grad = False
     return model
 
 # eval a batch of trials with a trained model
@@ -71,8 +85,7 @@ def eval_model( model, task, sr_scram ):
         # plot inputs
         #plt.plot(inputs[:,0,:])
         #plt.axvline(100, color='black', linestyle='--', linewidth=2, label='Cue onset')
-
-        
+    
              
         targets = task.generate_rdk_reproduction_cue_target( s_label, sr_scram, c_label )
     
@@ -101,6 +114,112 @@ def eval_model( model, task, sr_scram ):
     tau3 = tau3.cpu().detach().numpy()
 
     return outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau1,tau3,m_acc,tbt_acc,cues
+
+
+#stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter
+def decode_ls_svm(r_mat, s_label, n_afc, w_size, time_or_xgen, n_trn_tst_cvs, trn_prcnt):
+    """
+    
+    least square SVM
+    
+    Parameters
+    ----------
+    r_mat : matrix of rates (timepoints, neurons)
+    
+    s_label : which stimulus was presented on this trial
+        
+    Returns
+    -------
+    pred acc for layer that was given as an input
+        
+    """
+    
+    # num neurons and num timepoints
+    n_tmpts = r_mat.shape[0]
+    n_trials = r_mat.shape[1]
+    n_neurons = r_mat.shape[2]
+    u_stims = np.unique( s_label ).astype( int )
+    tmpnts = n_tmpts//w_size  # actual num of timepoints for decoding...
+    
+    # make the model for categorical regression - make 2 
+    # to speed up x-time training...
+    # svc_model = LinearSVC( class_weight = 'balanced', max_iter=1000 )
+    # svc_model2 = LinearSVC( class_weight = 'balanced', max_iter=1000 )
+    ls_svm_model_h = RidgeClassifier( class_weight = 'balanced' )
+
+    
+    # if training/testing separately on each timepoint
+    if time_or_xgen == 0: 
+    
+        # alloc to store the overall acc and the stim-specific acc
+        over_acc = np.zeros( ( n_trn_tst_cvs,tmpnts ) )  
+        stim_acc = np.zeros( ( len(u_stims),n_trn_tst_cvs,tmpnts ) )
+    
+        # loop over timepoints 
+        for t_idx,t in enumerate( range( 0,n_tmpts,w_size ) ) :
+            
+            t_data = np.mean( r_mat[t:t+w_size,:,:],axis=0 )
+            
+            # cv loop 
+            for cv in range( n_trn_tst_cvs ):
+                
+
+                # train test split...because of unbalanced eval for prob 80 models
+                h_train, h_test, y_train, y_test = train_test_split( t_data, s_label, train_size=trn_prcnt )        
+
+                # train the model on data from this timepoint using train data
+                ls_svm_model_h.fit( h_train,y_train )
+                
+                # get predictions based on test data
+                pred_val = ls_svm_model_h.predict( h_test )
+                
+                # compute overall mean acc
+                over_acc[cv,t_idx] = np.sum( pred_val==y_test ) / len(y_test)    
+                
+                #then compute acc for each stim at this timepoint
+                for us in u_stims:
+                    # index of trials in test set that are the
+                    # current stim (us)
+                    s_idx = np.where( y_test==us )[0]
+                    stim_acc[ us,cv,t_idx ] = np.sum( pred_val[ s_idx ]==us ) / len(s_idx)    
+        
+        # then avg accs over cv folds before returning
+        over_acc = np.mean( over_acc,axis=0 )
+        stim_acc = np.mean( stim_acc,axis=1 )
+
+    # generalize across time...
+    elif time_or_xgen == 1: 
+    
+        # alloc to store the overall acc and the stim-specific acc
+        over_acc = np.zeros( ( n_trn_tst_cvs,tmpnts,tmpnts ) )  
+        stim_acc = np.zeros( ( len(u_stims),n_trn_tst_cvs,tmpnts,tmpnts ) )
+         
+        
+        # outer loop over timepoints 
+        for t_idx,t in enumerate( range( 0,n_tmpts,t_step ) ) :
+
+            # train test split
+            rnd_tri = np.random.permutation( n_trials )
+            
+            h_train = r_mat[t,rnd_tri[:trial_split],:]
+            y_train = s_label[rnd_tri[:trial_split]]
+
+            
+            # train h models
+            ls_svm_model_h.fit( h_train, y_train )
+
+            # inner loop over timepoints 
+            for tt_idx,tt in enumerate( range( 0,n_tmpts,t_step ) ) :           
+                
+                # compute acc for h
+                pred_acc[ t_idx,tt_idx ] = ls_svm_model_h.score( r_mat[tt,rnd_tri[trial_split:],:],s_label[rnd_tri[trial_split:]] )
+                
+                
+                
+                
+
+    return pred_acc
+
 
 def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter):
     """
