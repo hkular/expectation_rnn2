@@ -37,7 +37,8 @@ class RNN(torch.nn.Module):
         #----------------------------
         # get input params for network
         #----------------------------
-        self.task_type = rnn_settings['task_type']
+        self.cue_layer_num = rnn_settings['cue_layer_num']  # which layer is the cue?
+        self.task_type = rnn_settings['task_type']          # which task
         self.dt = rnn_settings['dt']                        # timestep
         self.batch_size = rnn_settings['batch_size']        # number of trials in a training batch
         self.stim_on = rnn_settings['stim_on']              # onset time of stim - only apply feedback after this time
@@ -216,7 +217,12 @@ class RNN(torch.nn.Module):
             # (self.h_layer1( r1 )) (i.e. state before 
             # the updating that is happening at the current time step). Mask for Dale's 
             # applied in the h_layer forward method...
-            next_x1 = ( ( 1-( self.dt/h_taus_sig1 ) ) * next_x1 ) + ( ( self.dt/h_taus_sig1 ) * ( stim_inp + self.h_layer1( r1 ) + fb_21 ) )
+            if (self.task_type == 'rdk_repro_cue' & self.cue_layer_num == 1):
+                cue_input1 = self.cue_layer( cues[t,:,:] )
+            else:
+                cue_input1 = 0
+            
+            next_x1 = ( ( 1-( self.dt/h_taus_sig1 ) ) * next_x1 ) + ( ( self.dt/h_taus_sig1 ) * ( stim_inp + self.h_layer1( r1 ) + fb_21 + cue_input1 ) )
             next_x1 += torch.randn( self.h_size1, dtype=torch.float32 ) * self.noise
 
             # now move on to layer 2 - it will get ff input from layer 1 and 
@@ -234,8 +240,13 @@ class RNN(torch.nn.Module):
             else:
                 fb_32 = torch.matmul( r3, torch.matmul( self.h_layer3.mfb_32,self.h_layer3.wfb_32 ) )
 
-            # next x for layer 2            
-            next_x2 = ( ( 1-( self.dt/h_taus_sig2 ) ) * next_x2 ) + ( ( self.dt/h_taus_sig2 ) * ( ff_12 + self.h_layer2( r2 ) + fb_32 ) )
+            # next x for layer 2
+            if (self.task_type == 'rdk_repro_cue' & self.cue_layer_num == 2):
+                cue_input2 = self.cue_layer( cues[t,:,:] )
+            else:
+                cue_input2 = 0
+            
+            next_x2 = ( ( 1-( self.dt/h_taus_sig2 ) ) * next_x2 ) + ( ( self.dt/h_taus_sig2 ) * ( ff_12 + self.h_layer2( r2 ) + fb_32 + cue_input2 ) )
             next_x2 += torch.randn( self.h_size2, dtype=torch.float32 ) * self.noise                
                 
             # now move on to layer 3 - it will get ff input from layer 2 and
@@ -248,12 +259,12 @@ class RNN(torch.nn.Module):
                 ff_23 = torch.matmul( r2, torch.matmul( self.h_layer2.mff_23,self.h_layer2.wff_23) )
                 
             # next x for layer 3
-            if self.task_type == 'rdk_repro_cue':
-                cue_input = self.cue_layer( cues[t,:,:] )
+            if (self.task_type == 'rdk_repro_cue' & self.cue_layer_num == 3):
+                cue_input3 = self.cue_layer( cues[t,:,:] )
             else:
-                cue_input = 0
+                cue_input3 = 0
                 
-            next_x3 = ( ( 1-( self.dt/h_taus_sig3 ) ) * next_x3 ) + ( ( self.dt/h_taus_sig3 ) * ( ff_23 + self.h_layer3( r3 ) + cue_input ) )
+            next_x3 = ( ( 1-( self.dt/h_taus_sig3 ) ) * next_x3 ) + ( ( self.dt/h_taus_sig3 ) * ( ff_23 + self.h_layer3( r3 ) + cue_input3 ) )
             next_x3 += torch.randn( self.h_size3, dtype=torch.float32 ) * self.noise       
             
             # after the full sweep is done, then compute next "firing rates" 

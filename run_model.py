@@ -4,6 +4,7 @@
 Created on Fri Apr 18 08:31:07 2025
 
 @author: johnserences, jserences@ucsd.edu
+@author2: hkular, hkular@ucsd.edu
 """
 
 # imports
@@ -13,7 +14,8 @@ import json
 import os
 import matplotlib.pyplot as plt    # note: importing this in all files just for debugging stuff
 import argparse
- 
+# import class to make model, make hidden layer, and loss function
+from expectation_rnn import *
 # import class to make model inputs (defines different tasks, and can add other tasks easily using this framework)
 from rdk_task import RDKtask
 
@@ -42,9 +44,8 @@ parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
     help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
 parser.add_argument('--stim_prob_mode', type=str, default='biased',
     help='Stimulus probability(e.g., biased or unbiased or both)')
-args = parser.parse_args()
-parser.add_argument('--cue_layer', type=str, required = True,
-    help='Which layer receives cue 1 or 3?')
+parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
+    help='Which layer receives cue (1,2,3)?')
 args = parser.parse_args()
 
 
@@ -67,18 +68,7 @@ else:
 
 #--------------------------------
 # RNN Params
-#--------------------------------
-# import class to make model, make hidden layer, and loss function
-
-
-cue_layer = args.cue_layer
-if cue_layer == 1:
-    from expectation_rnn_cue1 import *
-elif cue_layer == 3:
-    from expectation_rnn_cue3 import *
-else:
-    print('Invalid cue layer')
-
+#-------------------------------
 
 # explicitly set random seed manually for different model instantiations? 
 set_rand_seed = 1
@@ -86,13 +76,14 @@ set_rand_seed = 1
 # task params
 task_type = args.task             # task type (conceptually think of as a motion discrimination task...) 
 n_afc = args.n_afc                # number of stimulus alternatives
-T = 200                           # timesteps in each trial
+T = 225                           # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
 stim_amps = args.stim_amps        # list of amp of stim amps (will loop over these during training)
 stim_noise = args.ext_noise       # magnitude of randn background noise in the stim channel
 batch_size = 256                  # number of trials in each batch
 acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_thresh during target window is correct
+
                                   # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
 if args.stim_prob_mode == 'biased':  
     stim_probs = [0.8]
@@ -116,6 +107,7 @@ W_inp_trainable = False           # w_in trainable?
 bias_inp_trainable = False        # bias_in trainable?
 
 # cue layer params - only used if task_type == 'rdk_repro_cue'
+cue_layer_num = args.cue_layer_num
 num_cues = args.n_cues            # number of s-r mappings
 W_cue_scalar = 1.0                # scalar for the weights in the input matrix
 bias_cue_scalar = 0.0             # 0 for no bias...
@@ -185,7 +177,7 @@ learning_rate = 0.01
 # multiple GPUs
 #--------------------------------
 n_models = args.N           
-model_offset = 1
+model_offset = 0
 
 for m_num in range( model_offset,model_offset+n_models ):
 
@@ -199,7 +191,7 @@ for m_num in range( model_offset,model_offset+n_models ):
     # dict of params to init the network
     rnn_settings = {'task_type' : task_type, 'batch_size' : batch_size,'stim_on' : stim_on, 'noise' : noise, 'dt' : dt, 'act_func' : act_func, 
                     'inp_size' : inp_size, 'W_inp_scalar' : W_inp_scalar, 'bias_inp_scalar' : bias_inp_scalar, 'W_inp_trainable' : W_inp_trainable,
-                    'bias_inp_trainable' : bias_inp_trainable, 'num_cues' : num_cues, 'W_cue_scalar' : W_cue_scalar, 'bias_cue_scalar' : bias_cue_scalar,
+                    'bias_inp_trainable' : bias_inp_trainable, 'cue_layer_num': cue_layer_num,'num_cues' : num_cues, 'W_cue_scalar' : W_cue_scalar, 'bias_cue_scalar' : bias_cue_scalar,
                     'W_cue_trainable' : W_cue_trainable, 'bias_cue_trainable' : bias_cue_trainable,
                     'n_h_layers' : n_h_layers, 'h_size' : h_size, 'h_tau' : h_tau, 'h_tau_trainable' : h_tau_trainable,
                     'p_rec' : p_rec, 'p_inh' : p_inh, 'apply_dale' : apply_dale, 'w_dist' : w_dist, 'w_gain' : w_gain, 'bias_scalar' : bias_scalar, 'W_h_trainable' : W_h_trainable, 
@@ -239,9 +231,8 @@ for m_num in range( model_offset,model_offset+n_models ):
             
             # create the task object
             task = RDKtask( settings )
-    
-            print(f'Training model {task_type}, mod_num {m_num}, n_afc {n_afc}, stim_prob {out_stim_prob},  stim_amp {out_stim_amp}, stim_noise {out_stim_noise}')
-    
+            
+                
             # Adam optimizer 
             optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
             
@@ -249,94 +240,10 @@ for m_num in range( model_offset,model_offset+n_models ):
             # over the last batch of trials every loss_update_step trials
             running_loss = 0
             running_acc = 0 
-
-            # loop over number of model training iterations
-            for i in range( iters ):
-                
-                # get a batch of inputs and targets
-                if task_type=='rdk':
-                    inputs,s_label = task.generate_rdk_stim()  
-                    targets = task.generate_rdk_target( s_label )
-                    cues = np.zeros( (T, batch_size, n_stim_chans) )   #make dummy cues - not applied
-
-                elif task_type=='rdk_reproduction':
-                    inputs,s_label = task.generate_rdk_reproduction_stim()  
-                    targets = task.generate_rdk_reproduction_target( s_label )
-                    cues = np.zeros( (T, batch_size, n_stim_chans) )   #make dummy cues - not applied
-
-                elif task_type=='rdk_repro_cue':
-                    
-                    # generate scrambled sr mapping for this model
-                    if i == 0: 
-                        sr_scram = task.gen_sr_scram()
-                    
-                    inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim()  
-                    targets = task.generate_rdk_reproduction_cue_target( s_label,sr_scram,c_label )
-
-                # zero out the gradient buffers before updating model params (e.g. Weights/biases)
-                optimizer.zero_grad()
-                
-                # pass inputs...get outputs and hidden layer states if 
-                # desired - valid cue if cue task desired, otherwise 0
-                outputs,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3 = net( inputs, cues ) 
-
-                # compute loss given current output and target 
-                # output on each trial in this batch           
-                if weighted_loss == 1: 
-                    loss = net.mse_weighted_loss( outputs, targets, s_label )
-                else:
-                    loss = net.mse_loss( outputs, targets )
             
-                # backprop the loss
-                loss.backward()
             
-                # single optimization step to update parameters
-                optimizer.step()        
-            
-                # update running loss (just to keep track and to print out)
-                running_loss += loss.item()
-                
-                # Compute prediction accuracy (defined by the thresholds specified in settings dict)
-                if task_type=='rdk':
-                    m_acc, tbt_acc = task.compute_acc( outputs,s_label )
-                
-                elif task_type=='rdk_reproduction':
-                    m_acc, tbt_acc = task.compute_acc_reproduction( outputs,s_label )  
-                
-                elif task_type=='rdk_repro_cue':
-                    m_acc, tbt_acc = task.compute_acc_reproduction_cue( outputs,s_label,targets )  
-                    
-                running_acc += m_acc
-            
-                # update about current loss and acc rate of model 
-                # every loss_update_step steps
-                if i % loss_update_step == loss_update_step-1:
-            
-                    # compute avg loss and avg acc over last loss_update_step iterations
-                    running_loss /= loss_update_step
-                    running_acc /= loss_update_step
-                    
-                    # print out to monitor training
-                    print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}')
-            
-                    # see if we've reached criteria to stop training
-                    if (running_loss < loss_crit) | (running_acc > acc_crit):
-                        print('Training finished')
-                        break
-                    
-                    # reset to zero before evaluating the loss and acc
-                    # of the next loss_update_step iterations...
-                    running_loss = 0
-                    running_acc = 0            
-                
             # output file name
-            if task_type == 'rdk':     
-                if weighted_loss == 1:
-                    fn = f'trained_models_{task_type}/gonogo_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_modnum-{m_num}'
-                else:
-                    fn = f'trained_models_{task_type}/gonogo_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_nw_mse_modnum-{m_num}'
-                           
-            elif task_type=='rdk_reproduction':
+            if task_type=='rdk_reproduction':
                 if weighted_loss == 1:
                     fn = f'trained_models_{task_type}/repro_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_modnum-{m_num}'
                 else:
@@ -344,35 +251,122 @@ for m_num in range( model_offset,model_offset+n_models ):
 
             elif task_type=='rdk_repro_cue':
                 if weighted_loss == 1:
-                    fn = f'trained_models_{task_type}/cue_layer{cue_layer}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_modnum-{m_num}'
+                    fn = f'trained_models_{task_type}/timing_{T}_cueon{cue_on}/cue_layer{cue_layer_num}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_modnum-{m_num}'
                 else:
-                    fn = f'trained_models_{task_type}/cue_layer{cue_layer}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_nw_mse_modnum-{m_num}'
-
-
-            # save out model...
-            torch.save(net, f'{fn}.pt')
-            
-            # save out the sr mapping for this model if cue task
-            if task_type == 'rdk_repro_cue':
-                tmp_scram = {}
-                for s in range( sr_scram.shape[0] ):
-                    tmp_scram[s] = sr_scram[s].tolist()
+                    fn = f'trained_models_{task_type}/timing_{T}_cueon{cue_on}/cue_layer{cue_layer_num}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_nw_mse_modnum-{m_num}'
                     
-                rnn_settings['sr_scram'] = tmp_scram
+            # check to see if exists...if not, run, otherwise skip
+            if os.path.exists(f'{fn}.pt') == False:       
             
-            # write params for this model to JSON file
-            # after adding a field to include the number of training steps,
-            # the current accuracy of model, and the current loss, etc
-            rnn_settings['step'] = i+1     
-            rnn_settings['running_acc'] = running_acc
-            rnn_settings['running_loss'] = running_loss
-            rnn_settings['acc_crit'] = acc_crit
-            rnn_settings['weighted_loss'] = weighted_loss
-            
-            # dump params to json so that we have a complete record of all params
-            # during model training                
-            with open(f'{fn}.json', "w") as outfile:
-                json.dump((settings,rnn_settings), outfile)
-            
+    
+                print(f'Training model {task_type}, mod_num {m_num}, n_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, cue_on {cue_on}, cue_layer {cue_layer_num}')
+    
+    
+                # loop over number of model training iterations
+                for i in range( iters ):
+                    
+                    # get a batch of inputs and targets
+                    if task_type=='rdk':
+                        inputs,s_label = task.generate_rdk_stim()  
+                        targets = task.generate_rdk_target( s_label )
+                        cues = np.zeros( (T, batch_size, n_stim_chans) )   #make dummy cues - not applied
+    
+                    elif task_type=='rdk_reproduction':
+                        inputs,s_label = task.generate_rdk_reproduction_stim()  
+                        targets = task.generate_rdk_reproduction_target( s_label )
+                        cues = np.zeros( (T, batch_size, n_stim_chans) )   #make dummy cues - not applied
+    
+                    elif task_type=='rdk_repro_cue':
+                        
+                        # generate scrambled sr mapping for this model
+                        if i == 0: 
+                            sr_scram = task.gen_sr_scram()
+                        
+                        inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim()  
+                        targets = task.generate_rdk_reproduction_cue_target( s_label,sr_scram,c_label )
+    
+                    # zero out the gradient buffers before updating model params (e.g. Weights/biases)
+                    optimizer.zero_grad()
+                    
+                    # pass inputs...get outputs and hidden layer states if 
+                    # desired - valid cue if cue task desired, otherwise 0
+                    outputs,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3 = net( inputs, cues ) 
+    
+                    # compute loss given current output and target 
+                    # output on each trial in this batch           
+                    if weighted_loss == 1: 
+                        loss = net.mse_weighted_loss( outputs, targets, s_label )
+                    else:
+                        loss = net.mse_loss( outputs, targets )
+                
+                    # backprop the loss
+                    loss.backward()
+                
+                    # single optimization step to update parameters
+                    optimizer.step()        
+                
+                    # update running loss (just to keep track and to print out)
+                    running_loss += loss.item()
+                    
+                    # Compute prediction accuracy (defined by the thresholds specified in settings dict)
+                    if task_type=='rdk':
+                        m_acc, tbt_acc = task.compute_acc( outputs,s_label )
+                    
+                    elif task_type=='rdk_reproduction':
+                        m_acc, tbt_acc = task.compute_acc_reproduction( outputs,s_label )  
+                    
+                    elif task_type=='rdk_repro_cue':
+                        m_acc, tbt_acc = task.compute_acc_reproduction_cue( outputs,s_label,targets )  
+                        
+                    running_acc += m_acc
+                
+                    # update about current loss and acc rate of model 
+                    # every loss_update_step steps
+                    if i % loss_update_step == loss_update_step-1:
+                
+                        # compute avg loss and avg acc over last loss_update_step iterations
+                        running_loss /= loss_update_step
+                        running_acc /= loss_update_step
+                        
+                        # print out to monitor training
+                        print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, cue_on {cue_on}, cue_layer {cue_layer_num}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}')
+                
+                        # see if we've reached criteria to stop training
+                        if (running_loss < loss_crit) | (running_acc > acc_crit):
+                            print('Training finished')
+                            break
+                        
+                        # reset to zero before evaluating the loss and acc
+                        # of the next loss_update_step iterations...
+                        running_loss = 0
+                        running_acc = 0            
+                    
+    
+                # save out model...
+                torch.save(net, f'{fn}.pt')
+                
+                # save out the sr mapping for this model if cue task
+                if task_type == 'rdk_repro_cue':
+                    tmp_scram = {}
+                    for s in range( sr_scram.shape[0] ):
+                        tmp_scram[s] = sr_scram[s].tolist()
+                        
+                    rnn_settings['sr_scram'] = tmp_scram
+                
+                # write params for this model to JSON file
+                # after adding a field to include the number of training steps,
+                # the current accuracy of model, and the current loss, etc
+                rnn_settings['step'] = i+1     
+                rnn_settings['running_acc'] = running_acc
+                rnn_settings['running_loss'] = running_loss
+                rnn_settings['acc_crit'] = acc_crit
+                rnn_settings['weighted_loss'] = weighted_loss
+                
+                # dump params to json so that we have a complete record of all params
+                # during model training                
+                with open(f'{fn}.json', "w") as outfile:
+                    json.dump((settings,rnn_settings), outfile)
+            else:
+                print(f'Exists, skipping {fn}')
 
         
