@@ -22,7 +22,7 @@ from rdk_task import RDKtask
 
 
 # example cmd line...
-# python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 --stim_amps 1.0 --stim_prob_mode biased --cue_layer 1
+# python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 --stim_amps 1.0 --stim_prob_mode biased --cue_onset stim_offset --cue_layer_num 3
 
 # parse input args...
 parser = argparse.ArgumentParser(description='Training RDK Task RNNs')
@@ -44,6 +44,8 @@ parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
     help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
 parser.add_argument('--stim_prob_mode', type=str, default='biased',
     help='Stimulus probability(e.g., biased or unbiased or both)')
+parser.add_argument('--cue_onset', required = True, type =str, default = 'stim_offset',
+    help='When does the cue come on (stim_offset or beginning)?')
 parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
     help='Which layer receives cue (1,2,3)?')
 args = parser.parse_args()
@@ -113,7 +115,10 @@ W_cue_scalar = 1.0                # scalar for the weights in the input matrix
 bias_cue_scalar = 0.0             # 0 for no bias...
 W_cue_trainable = False           # w_in trainable? 
 bias_cue_trainable = False        # bias_in trainable?
-cue_on = stim_on+stim_dur         # cue comes on when stim goes off
+if args.cue_onset == 'stim_offset':
+    cue_on = stim_on+stim_dur         # cue comes on when stim goes off
+elif args.cue_onset == 'beginning':
+    cue_on = 0
 cue_dur = T-cue_on                # cue stays on the rest of the trial
 
 # general params for hidden layers - lists (or list of lists) 
