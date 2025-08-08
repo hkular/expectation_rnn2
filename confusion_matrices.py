@@ -30,17 +30,25 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 device = 'cpu'                    # device to use for loading/eval model
 task_type = 'rdk_repro_cue'                 # task type (conceptually think of as a motion discrimination task...)         
-T = 200                           # timesteps in each trial
+T = 225                          # timesteps in each trial
+n_afc = 6
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
-stim_noise = 0.1                  # magnitude of randn background noise in the stim channel
+stim_prob = 0.8           # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+stim_prob_to_eval = 1/n_afc          # eval the model at this prob level (stim_prob is used to determine which trained model to use)
+stim_amps_train = 1.0                # can make this a list of amps and loop over... 
+stim_amps = 1.0
+stim_noise_train = 0.1
+stim_noise = stim_noise_train                 # magnitude of randn background noise in the stim channel
 batch_size = 1000                 # number of trials in each batch
 acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_thresh during target window is correct
 weighted_loss = 0                       #  0 = nw_mse l2 or 1 = weighted mse
 num_cues = 2
 cue_on = 75
-# %%
 cue_dur = T-cue_on
+cue_layer = 3
+# %%
+
 
 
 if task_type == 'rdk':
@@ -48,7 +56,7 @@ if task_type == 'rdk':
 elif task_type == 'rdk_reproduction':
     fn_stem = 'trained_models_rdk_reproduction/repro_'
 elif task_type == 'rdk_repro_cue':
-    fn_stem = 'trained_models_rdk_repro_cue/reprocue_' 
+    fn_stem =  f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
 
 # Preset some conditions
 afcs = [6]
@@ -92,7 +100,7 @@ for n_afc in afcs:
                       
             
             # Look up how many models to run for this condition
-            n_models = 3#count_models(n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_type, directory = os.getcwd())
+            n_models = count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, weighted_loss, task_type, fn_stem, directory = os.getcwd())
         
             #--------------------------
             # loop over trained models 
@@ -175,7 +183,7 @@ import seaborn as sns
 # convert list to dataframe
 df = pd.DataFrame(results)
 # Define balanced/unbalanced
-df['stim_prob'] = df['stim_prob'].apply(lambda x: 'balanced' if np.isclose(x, 1/6) or np.isclose(x, 1/3) else 'unbalanced')
+df['stim_prob'] = df['stim_prob'].apply(lambda x: 'unbiased' if np.isclose(x, 1/6) or np.isclose(x, 1/3) else 'biased')
 # Set afc as categorical (ensures correct spacing)
 df['afc'] = pd.Categorical(df['afc'], categories=sorted(df['afc'].unique()))
 
@@ -220,7 +228,7 @@ for i, (_, row) in enumerate(unique_conditions.iterrows()):
     ax.axvline(x=n_cols - 1.5, color='r', linewidth=2, linestyle = '--')
 
 
-    ax.set_title(f'{row["afc"]}-AFC, P={row["stim_prob"]}, A={row["stim_amp"]}')
+    ax.set_title(f'P={row["stim_prob"]}, Cue_on{cue_on}, Cue_L{cue_layer}, n_mods{m_num+1}')
     ax.set_xlabel('Predicted')
     ax.set_ylabel('True')
 

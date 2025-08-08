@@ -36,7 +36,7 @@ from model_count import count_models
 device = 'cpu'                    # device to use for loading/eval model
 task_type = 'rdk_repro_cue'    # task type (conceptually think of as a motion discrimination task...)         
 n_afc = 6                         # number of stimulus alternatives
-T = 200                           # timesteps in each trial
+T = 225                           # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
 stim_prob = 0.8               # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
@@ -52,8 +52,9 @@ noise_internal = 0.1              # trained under 0.1 try 0.25
 num_cues = 2
 cue_on = stim_on+stim_dur
 cue_dur = T-cue_on
+cue_layer = 3
 out_size = n_afc  
-fn_stem = 'trained_models_rdk_repro_cue/reprocue_'
+fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
 
     
 
@@ -62,7 +63,7 @@ fn_stem = 'trained_models_rdk_repro_cue/reprocue_'
 # decoding params
 #--------------------------
 trn_prcnt = 0.8    # percent of data to use for training
-n_trn_tst_cvs = 5  # how many train/test cv folds
+n_cvs = 5  # how many train/test cv folds
 time_or_xgen = 0   # decode timepnt x timepnt or do full xgen matrix 
 w_size = 5         # mv_avg window size
 num_cs = 1         # number of C's to grid search, if 1 then C=1
@@ -127,7 +128,7 @@ unique_labels = np.unique(s_label_int)
 fig = plt.figure(figsize=(12, 8))
 ax = fig.add_subplot(111, projection='3d')
 
-fr = h1
+fr = h3
 labels = s_label_int
 
 # Define a colormap for the labels
@@ -184,8 +185,8 @@ plt.show()
 start_points = []
 end_points = []
 labels_all = []
-fr = data['fr2'] # shape (1000, 250, 200) trials x time x units
-labels = data['labs'].flatten()  # labels are 1D, shape (1000,)trials
+fr = h1 # shape (1000, 250, 200) trials x time x units
+labels = s_label_int  # labels are 1D, shape (1000,)trials
 
 
 

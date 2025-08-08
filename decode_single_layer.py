@@ -42,7 +42,7 @@ hex_c = ['#06D2AC',  # aqua green
 device = 'cpu'                    # device to use for loading/eval model
 task_type = 'rdk_repro_cue'       # task type (conceptually think of as a motion discrimination task...)         
 n_afc = 6                         # number of stimulus alternatives
-T = 200                           # timesteps in each trial
+T = 225                           # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
 stim_prob = 1/n_afc                   # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
@@ -56,18 +56,27 @@ acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_
 weighted_loss = 0                 #  0 = nw_mse l2 or 1 = weighted mse
 noise_internal = 0.1              # trained under 0.1 try 0.25 
 num_cues = 2                      # how many s->r cues
-cue_on = stim_on+stim_dur         # cue comes on after stim goes off
+cue_on = 75         # cue comes on after stim goes off
 cue_dur = T-cue_on                # cue stays on until the end
 out_size = n_afc                  # n_afc outputs in reproduction task
-fn_stem = 'trained_models_rdk_repro_cue/reprocue_'
+fn_stem = 'trained_models_rdk_repro_cue/timing_225_cueon_0/cue_layer3/reprocue_'
+plots = False
 
+# if torch.backends.mps.is_available():
+#     mps_device = torch.device("mps")
+#     x = torch.ones(1, device=mps_device)
+#     print (x)
+# else:
+#     print ("MPS device not found.")
+    
 
 #--------------------------
 # decoding params
 #--------------------------
 trn_prcnt = 0.8    # percent of data to use for training
-n_trn_tst_cvs = 5  # how many train/test cv folds
-time_or_xgen = 0   # decode timepnt x timepnt or do full xgen matrix 
+n_cvs = 5  # how many train/test cv folds
+time_or_xgen = 0   # decode timepnt x timepnt or do full xgen matrix
+classes = 'stim'   # which class? stim, choice
 w_size = 5         # mv_avg window size
 num_cs = 1         # number of C's to grid search, if 1 then C=1
 n_cvs_for_grid = 5 # num cv folds of training data to find best C
@@ -91,7 +100,10 @@ task = RDKtask( settings )
 #--------------------------
 # How many trained models in this cond
 #--------------------------
-n_models = count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, weighted_loss, task_type, directory = os.getcwd())
+n_models = count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, weighted_loss, task_type, fn_stem, directory = os.getcwd())
+
+# fn out for npz file to store decoding data
+#fn_out = f'{fn_stem}_decode_n_afc-{n_afc}_stim_noise-{stim_noise_train}_trnamp-{da}_evalamp-{ea}_distype-{stim_dis_weights}_ff-{ffa}_fb-{fba}_inh_kappa-{ring_w_kappa_inh}_cue_on-{cue_on}_h1_L2-{h1_lam_l2}_h2_L2-{h2_lam_l2}_ST-{sparse_type}_fb_on-{fb_on}_stim_noise_eval-{stim_noise_eval}_internal_noise-{internal_noise_eval}.npz'
 
 
 #--------------------------
@@ -101,17 +113,10 @@ n_models = count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, wei
 if time_or_xgen == 0:
     over_acc = np.full( ( n_models,T//w_size ),np.nan )
     stim_acc = np.full( ( n_models,n_afc,T//w_size ),np.nan )
-    choice_over_acc = np.full( ( n_models,T//w_size ),np.nan )
-    choice_acc = np.full( ( n_models,n_afc,T//w_size ),np.nan )
-    cue_over_acc = np.full( ( n_models,T//w_size ),np.nan )
-    cue_acc = np.full( ( n_models,num_cues,T//w_size ),np.nan )
 else:
     over_acc = np.full( ( n_models,T//w_size,T//w_size ),np.nan )
     stim_acc = np.full( ( n_models,n_afc,T//w_size,T//w_size ),np.nan )    
-    choice_over_acc = np.full( ( n_models,T//w_size,T//w_size ),np.nan )
-    choice_acc = np.full( ( n_models,n_afc,T//w_size,T//w_size ),np.nan )
-    cue_over_acc = np.full( ( n_models,T//w_size,T//w_size ),np.nan )
-    cue_acc = np.full( ( n_models,num_cues,T//w_size,T//w_size ),np.nan )        
+      
 
 for m_num in np.arange( n_models ):
     
@@ -148,56 +153,53 @@ for m_num in np.arange( n_models ):
     outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc,cues = eval_model( net, task, sr_scram )
     s_label_int = np.argmax(s_label, axis=1)
     
-    # quick plots - first expected, correct and incorrect trials
-    plt.plot(np.squeeze( outputs[ :,(s_label_int==0) & (tbt_acc==1),0 ] ), c=hex_c[0], alpha=0.25 )
-    plt.plot(np.squeeze( outputs[ :,(s_label_int==0) & (tbt_acc==0),0 ] ), c=hex_c[1], alpha=0.25 )
-    plt.xlabel('Time Step')
-    plt.ylabel('Output')
-    plt.title(f'expected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
-    plt.show()
-    
-    # quick plots - the unexpected, correct and incorrect trials
-    blues = plt.cm.Blues(np.linspace(0.4, 0.9, out_size))  # Skip very light colors
-    reds = plt.cm.Reds(np.linspace(0.4, 0.9, out_size))
-    # Convert RGBA to hex
-    hex_c_correct = [matplotlib.colors.rgb2hex(c[:3]) for c in blues]
-    hex_c_incorrect = [matplotlib.colors.rgb2hex(c[:3]) for c in reds]
-    for i in np.arange(out_size):
-        plt.plot(np.squeeze( outputs[ :,(s_label_int!=0) & (tbt_acc==1),i ] ), c=hex_c_correct[i], alpha=0.25 )
-        plt.plot(np.squeeze( outputs[ :,(s_label_int!=0) & (tbt_acc==0),i ] ), c=hex_c_incorrect[i], alpha=0.25 )
+    if plots:
+        # quick plots - first expected, correct and incorrect trials
+        plt.plot(np.squeeze( outputs[ :,(s_label_int==0) & (tbt_acc==1),0 ] ), c=hex_c[0], alpha=0.25 )
+        plt.plot(np.squeeze( outputs[ :,(s_label_int==0) & (tbt_acc==0),0 ] ), c=hex_c[1], alpha=0.25 )
         plt.xlabel('Time Step')
         plt.ylabel('Output')
-    #plt.ylim((-0.2,1.1))
-    plt.title(f'unexpected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
-    plt.show()
+        plt.title(f'expected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
+        plt.show()
+        
+        # quick plots - the unexpected, correct and incorrect trials
+        blues = plt.cm.Blues(np.linspace(0.4, 0.9, out_size))  # Skip very light colors
+        reds = plt.cm.Reds(np.linspace(0.4, 0.9, out_size))
+        # Convert RGBA to hex
+        hex_c_correct = [matplotlib.colors.rgb2hex(c[:3]) for c in blues]
+        hex_c_incorrect = [matplotlib.colors.rgb2hex(c[:3]) for c in reds]
+        for i in np.arange(out_size):
+            plt.plot(np.squeeze( outputs[ :,(s_label_int!=0) & (tbt_acc==1),i ] ), c=hex_c_correct[i], alpha=0.25 )
+            plt.plot(np.squeeze( outputs[ :,(s_label_int!=0) & (tbt_acc==0),i ] ), c=hex_c_incorrect[i], alpha=0.25 )
+            plt.xlabel('Time Step')
+            plt.ylabel('Output')
+        #plt.ylim((-0.2,1.1))
+        plt.title(f'unexpected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
+        plt.show()
     
-
+    if time_or_xgen == 0:
+        tmp_over_acc = np.full((n_cvs,T//w_size),np.nan)
+        tmp_stim_acc = np.full((n_cvs,n_afc,T//w_size),np.nan)
+    else:
+        tmp_over_acc = np.full( ( n_cvs,T//w_size,T//w_size ),np.nan )
+        tmp_stim_acc = np.full( ( n_cvs,n_afc,T//w_size,T//w_size ),np.nan )    
+        
     #--------------------------
     # decoding:
-    # stim
-    # choice
-    # cue
-    # manually change layer
     #--------------------------
-
-    # decode stim
-    over_acc[m_num,:], stim_acc[m_num,:,:] = decode_svc(stim_prob, h1, s_label_int, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter)
-    print(f"done decoding stim")
-    
-    # decode choice
-    # Step 1: Average output over the response window
-    mean_outputs = np.mean(outputs[stim_on:, :, :], axis=0)  # shape: (n_trials, n_stims)
-    # Step 2: Decode the choice (argmax across stimulus channels)
-    choice_labels = np.argmax(mean_outputs, axis=1)  # shape: (n_trials,)
-    choice_over_acc[m_num,:], choice_acc[m_num,:,:] = decode_svc(stim_prob, h1, choice_labels, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter)
-    print(f"done decoding choice")
-    
-    # decode cue
-    cue_labels =  cues[150].argmax(dim=1).detach().cpu().numpy()  # shape: (n_trials,)
-    cue_over_acc[m_num,:], cue_acc[m_num,:,:] = decode_svc(stim_prob, h1, cue_labels, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter)
-    print(f"done decoding cue")
-
-    
+    for cv in range( n_cvs ):
+        if classes == 'stim':
+            tmp_over_acc[cv,:], tmp_stim_acc[cv,:,:] = decode_ls_svm(h3, s_label_int, n_afc, w_size, time_or_xgen, trn_prcnt)          
+        elif classes == 'choice':
+            # Step 1: Average output over the response window
+            mean_outputs = np.mean(outputs[stim_on:, :, :], axis=0)  # shape: (n_trials, n_stims)
+            # Step 2: Decode the choice (argmax across stimulus channels)
+            choice_labels = np.argmax(mean_outputs, axis=1)  # shape: (n_trials,)
+            tmp_over_acc[cv,:], tmp_stim_acc[cv,:,:] = decode_ls_svm(h3, s_label_int, n_afc, w_size, time_or_xgen, trn_prcnt)
+    # average over cvs
+    over_acc[m_num,:] = np.mean(tmp_over_acc,axis=0)
+    stim_acc[m_num,:,:] = np.mean(tmp_stim_acc,axis=0)
+    print(f"done decoding {classes}")
 #--------------------------
 # plot decoding stuff...figure out if time x time 
 # or xgen, and if time x time if more than one model 
@@ -306,6 +308,13 @@ else:
     plt.title(f'{n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss unexpected')
     plt.show()        
     
+# save data if it's complete
+# if n_models == 10:
+#     # save out the data across models
+#     np.savez( fn_out,n_tmpts=T,pred_acc_exc1=pred_acc_exc1,pred_acc_inh1=pred_acc_inh1,
+#              pred_acc_exc2=pred_acc_exc2,pred_acc_inh2=pred_acc_inh2,eval_acc=eval_acc,
+#              stim_id=stim_id,all_stims=all_stims,inp_stims=inp_stims,avg_h1=avg_h1,avg_h2=avg_h2,
+#              avg_ff=avg_ff,avg_fb=avg_fb,params_dict=params_dict )
     
 # at the end remind me which one we were working on  
 print(f'finished {settings}')
