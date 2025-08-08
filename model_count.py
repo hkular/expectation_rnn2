@@ -34,7 +34,7 @@ def count_all_models(task_type):
 
 
 
-def count_models( n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_type ,directory):
+def count_models( n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_type, fn_stem, directory):
     
     if not directory:
         directory = os.getcwd()
@@ -73,11 +73,10 @@ def count_models( n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_t
                 fn = f'reprocue_num_afc-{n_afc}_stim_prob-{int( stim_prob * 100 )}_stim_amp-{int( stim_amps * 100 )}_stim_noise-{int( stim_noise * 100 )}_h_bias_trainable-1'  
         
         # define full path to emodel directory
-        model_dir = os.path.join(directory, 'trained_models_rdk_repro_cue')
+        model_dir = os.path.join(directory, fn_stem[:-9])
         if not os.path.exists(model_dir):
             print(f"Directory {model_dir} does not exist.")
             return 0
-        
        # Count files starting with the prefix
         count = sum(1 for fname in os.listdir(model_dir) if fname.startswith(fn) and fname.endswith('.pt'))
         print(f"Found {count} models matching prefix '{fn}'")

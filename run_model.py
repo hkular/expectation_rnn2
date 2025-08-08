@@ -256,9 +256,9 @@ for m_num in range( model_offset,model_offset+n_models ):
 
             elif task_type=='rdk_repro_cue':
                 if weighted_loss == 1:
-                    fn = f'trained_models_{task_type}/timing_{T}_cueon{cue_on}/cue_layer{cue_layer_num}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_modnum-{m_num}'
+                    fn = f'trained_models_{task_type}/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer_num}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_modnum-{m_num}'
                 else:
-                    fn = f'trained_models_{task_type}/timing_{T}_cueon{cue_on}/cue_layer{cue_layer_num}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_nw_mse_modnum-{m_num}'
+                    fn = f'trained_models_{task_type}/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer_num}/reprocue_num_afc-{n_afc}_stim_prob-{out_stim_prob}_stim_amp-{out_stim_amp}_stim_noise-{out_stim_noise}_h_bias_trainable-{int(bias_h_trainable[0])}_nw_mse_modnum-{m_num}'
                     
             # check to see if exists...if not, run, otherwise skip
             if os.path.exists(f'{fn}.pt') == False:       

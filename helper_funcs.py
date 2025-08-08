@@ -116,112 +116,118 @@ def eval_model( model, task, sr_scram ):
     return outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau1,tau3,m_acc,tbt_acc,cues
 
 
-#stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter
-def decode_ls_svm(r_mat, s_label, n_afc, w_size, time_or_xgen, n_trn_tst_cvs, trn_prcnt):
+def decode_ls_svm(r_mat, s_label, n_afc, w_size, time_or_xgen, trn_prcnt):
     """
     
     least square SVM
     
     Parameters
     ----------
-    r_mat : matrix of rates (timepoints, neurons)
+    r_mat : matrix of rates (timepoints, trials, neurons)
     
     s_label : which stimulus was presented on this trial
         
     Returns
     -------
-    pred acc for layer that was given as an input
+    over_acc: overall prediction accuracy
+    stim_acc: decoding accuracy for each stimulus
         
     """
     
     # num neurons and num timepoints
     n_tmpts = r_mat.shape[0]
     n_trials = r_mat.shape[1]
-    n_neurons = r_mat.shape[2]
     u_stims = np.unique( s_label ).astype( int )
     tmpnts = n_tmpts//w_size  # actual num of timepoints for decoding...
+
     
     # make the model for categorical regression - make 2 
     # to speed up x-time training...
-    # svc_model = LinearSVC( class_weight = 'balanced', max_iter=1000 )
-    # svc_model2 = LinearSVC( class_weight = 'balanced', max_iter=1000 )
     ls_svm_model_h = RidgeClassifier( class_weight = 'balanced' )
 
     
+    # precalc the time windows averages
+    win_data = np.array([
+    np.mean(r_mat[t:t+w_size,:,:], axis=0)
+    for t in range(0, n_tmpts, w_size)
+    ])
+    # win_data.shape = (tmpnts, n_trials, n_neurons)
+
     # if training/testing separately on each timepoint
     if time_or_xgen == 0: 
     
         # alloc to store the overall acc and the stim-specific acc
-        over_acc = np.zeros( ( n_trn_tst_cvs,tmpnts ) )  
-        stim_acc = np.zeros( ( len(u_stims),n_trn_tst_cvs,tmpnts ) )
+        over_acc = np.zeros( ( tmpnts ) )  
+        stim_acc = np.zeros( ( len(u_stims), tmpnts ) )
     
         # loop over timepoints 
-        for t_idx,t in enumerate( range( 0,n_tmpts,w_size ) ) :
+        for t_idx in range(tmpnts):
             
-            t_data = np.mean( r_mat[t:t+w_size,:,:],axis=0 )
+            # get the data from this timepoint
+            t_data = win_data[t_idx]
+                      
+            # train test split...because of unbalanced eval for prob 80 models
+            h_train, h_test, y_train, y_test = train_test_split( t_data, s_label, train_size=trn_prcnt )        
+
+            # train the model on data from this timepoint using train data
+            ls_svm_model_h.fit( h_train,y_train )
             
-            # cv loop 
-            for cv in range( n_trn_tst_cvs ):
-                
-
-                # train test split...because of unbalanced eval for prob 80 models
-                h_train, h_test, y_train, y_test = train_test_split( t_data, s_label, train_size=trn_prcnt )        
-
-                # train the model on data from this timepoint using train data
-                ls_svm_model_h.fit( h_train,y_train )
-                
-                # get predictions based on test data
-                pred_val = ls_svm_model_h.predict( h_test )
-                
-                # compute overall mean acc
-                over_acc[cv,t_idx] = np.sum( pred_val==y_test ) / len(y_test)    
-                
-                #then compute acc for each stim at this timepoint
-                for us in u_stims:
-                    # index of trials in test set that are the
-                    # current stim (us)
-                    s_idx = np.where( y_test==us )[0]
-                    stim_acc[ us,cv,t_idx ] = np.sum( pred_val[ s_idx ]==us ) / len(s_idx)    
+            # get predictions based on test data
+            pred_val = ls_svm_model_h.predict( h_test )
+            
+            # compute overall mean acc
+            over_acc[t_idx] = np.sum( pred_val==y_test ) / len(y_test)    
+            
+            # Per-class accuracy
+            cm = confusion_matrix(y_test, pred_val, labels=u_stims)
+            stim_acc[:, t_idx] = np.diag(cm) / cm.sum(axis=1)  
         
-        # then avg accs over cv folds before returning
-        over_acc = np.mean( over_acc,axis=0 )
-        stim_acc = np.mean( stim_acc,axis=1 )
 
     # generalize across time...
     elif time_or_xgen == 1: 
     
         # alloc to store the overall acc and the stim-specific acc
-        over_acc = np.zeros( ( n_trn_tst_cvs,tmpnts,tmpnts ) )  
-        stim_acc = np.zeros( ( len(u_stims),n_trn_tst_cvs,tmpnts,tmpnts ) )
+        over_acc = np.zeros( ( tmpnts,tmpnts ) )  
+        stim_acc = np.zeros( ( len(u_stims),tmpnts,tmpnts ) )
          
         
         # outer loop over timepoints 
-        for t_idx,t in enumerate( range( 0,n_tmpts,t_step ) ) :
+        for t_idx,t in enumerate( range( 0,n_tmpts,w_size ) ) :
 
             # train test split
-            rnd_tri = np.random.permutation( n_trials )
+            train_idx, test_idx = train_test_split(
+                np.arange(n_trials), train_size=trn_prcnt,
+                stratify=s_label, random_state=1)
             
-            h_train = r_mat[t,rnd_tri[:trial_split],:]
-            y_train = s_label[rnd_tri[:trial_split]]
-
             
+            h_train = win_data[t_idx][train_idx]
+            y_train = s_label[train_idx]
+        
             # train h models
             ls_svm_model_h.fit( h_train, y_train )
 
             # inner loop over timepoints 
-            for tt_idx,tt in enumerate( range( 0,n_tmpts,t_step ) ) :           
+            for tt_idx,tt in enumerate( range( 0,n_tmpts,w_size ) ) :           
                 
-                # compute acc for h
-                pred_acc[ t_idx,tt_idx ] = ls_svm_model_h.score( r_mat[tt,rnd_tri[trial_split:],:],s_label[rnd_tri[trial_split:]] )
-                
-                
-                
+               # test data for this timepoint
+               tst_t_data = win_data[tt_idx][test_idx]
+               tst_t_y = s_label[test_idx]              
+           
+               # get predictions based on test data
+               pred_val = ls_svm_model_h.predict( tst_t_data )
+               
+               # compute overall mean acc
+               over_acc[t_idx,tt_idx] = np.sum( pred_val==tst_t_y ) / len(tst_t_y)    
+               
+               # Per-class accuracy
+               cm = confusion_matrix(tst_t_y, pred_val, labels=u_stims)
+               stim_acc[:, t_idx, tt_idx] = np.diag(cm) / cm.sum(axis=1)  
                 
 
-    return pred_acc
+    return over_acc, stim_acc
 
 
-def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter):
+def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter):
     """
     
     linear support vector classifer
@@ -233,8 +239,6 @@ def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen
     s_label : which stimulus was presented on this trial
         
     trn_prcnt : percent of data to use as training set
-    
-    n_trn_tst_cvs : number of train/test cv folds 
     
     time_or_xgen : timepoint by timepoint or xgen over time
     
@@ -250,7 +254,6 @@ def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen
     
     Returns
     -------
-    pred_val : np array, predicted stim on each trial
     mean_acc : overall prediction accuracy
     stim_acc : decoding accuracy for each of the N possible stimuli
         
@@ -277,11 +280,11 @@ def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen
     
     # basic info
     n_tmpts = r_mat.shape[0]
-    n_trials = r_mat.shape[1]
-    n_neurons = r_mat.shape[2]
     u_stims = np.unique( s_label ).astype( int )
     tmpnts = n_tmpts//w_size  # actual num of timepoints for decoding...
     
+
+    # blance classes if needed
     if stim_prob == 0.8:
         # classes and their counts
         classes, class_counts = np.unique(s_label, return_counts = True)
@@ -311,97 +314,84 @@ def decode_svc(stim_prob, r_mat, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen
         s_label = s_label[balanced_indices]
     
     
+    # precalc the time windows averages
+    win_data = np.array([
+    np.mean(r_mat[t:t+w_size,:,:], axis=0)
+    for t in range(0, n_tmpts, w_size)
+    ])
+    # win_data.shape = (tmpnts, n_trials, n_neurons)
+    
+    
     # if training/testing separately on each timepoint
     if time_or_xgen == 0: 
     
         # alloc to store the overall acc and the stim-specific acc
-        over_acc = np.zeros( ( n_trn_tst_cvs,tmpnts ) )  
-        stim_acc = np.zeros( ( len(u_stims),n_trn_tst_cvs,tmpnts ) )
+        over_acc = np.zeros( ( tmpnts ) )  
+        stim_acc = np.zeros( ( len(u_stims),tmpnts ) )
     
         # loop over timepoints 
-        for t_idx,t in enumerate( range( 0,n_tmpts,w_size ) ):
+        for t_idx in range(tmpnts):
             
-            # get the data from this timepoint so we don't
-            # have to keep re-indexing in the cv loop
-            # mean across time window
-            t_data = np.mean( r_mat[t:t+w_size,:,:],axis=0 )
-                             
+            # get the data from this timepoint
+            t_data = win_data[t_idx]
+                                       
+            # train test split...because of unbalanced eval for prob 80 models
+            X_trn, X_tst, y_trn, y_tst = train_test_split( t_data, s_label, train_size=trn_prcnt )        
+
+            # train the model on data from this timepoint using train data
+            model.fit( X_trn,y_trn )
             
-            # cv loop 
-            for cv in range( n_trn_tst_cvs ):
+            # get predictions based on test data
+            pred_val = model.predict( X_tst )
+            
+            # Overall accuracy
+            over_acc[t_idx] = np.sum( pred_val==y_tst ) / len(y_tst)    
+            
+            # Per-class accuracy
+            cm = confusion_matrix(y_tst, pred_val, labels=u_stims)
+            stim_acc[:, t_idx] = np.diag(cm) / cm.sum(axis=1)
 
-                # train test split...because of unbalanced eval for prob 80 models
-                X_trn, X_tst, y_trn, y_tst = train_test_split( t_data, s_label, train_size=trn_prcnt )        
-
-                # train the model on data from this timepoint using train data
-                model.fit( X_trn,y_trn )
-                
-                # get predictions based on test data
-                pred_val = model.predict( X_tst )
-                
-                # compute overall mean acc
-                over_acc[cv,t_idx] = np.sum( pred_val==y_tst ) / len(y_tst)    
-                
-                #then compute acc for each stim at this timepoint
-                for us in u_stims:
-                    # index of trials in test set that are the
-                    # current stim (us)
-                    s_idx = np.where( y_tst==us )[0]
-                    stim_acc[ us,cv,t_idx ] = np.sum( pred_val[ s_idx ]==us ) / len(s_idx)    
-        
-        # then avg accs over cv folds before returning
-        over_acc = np.mean( over_acc,axis=0 )
-        stim_acc = np.mean( stim_acc,axis=1 )
             
             
     # train on one timepoint, gen to all others, etc...
     elif time_or_xgen == 1: 
     
         # alloc to store the overall acc and the stim-specific acc
-        over_acc = np.zeros( ( n_trn_tst_cvs,tmpnts,tmpnts ) )  
-        stim_acc = np.zeros( ( len(u_stims),n_trn_tst_cvs,tmpnts,tmpnts ) )
+        over_acc = np.zeros( ( tmpnts,tmpnts ) )  
+        stim_acc = np.zeros( ( len(u_stims),tmpnts,tmpnts ) )
       
         # outer loop over timepoints 
-        for t_idx,t in enumerate( range( 0,n_tmpts,w_size ) ):
+        for t_idx in range(tmpnts):
             
             # get a train/test index...
-            split_ind = train_test_split(np.arange(len(s_label)), train_size=trn_prcnt, shuffle=False)
+            split_ind = train_test_split(np.arange(len(s_label)), train_size=trn_prcnt)
             
             # get the train data from this timepoint
-            trn_t_data = np.mean( r_mat[t:t+w_size,split_ind[0],:],axis=0 )
+            trn_t_data = win_data[t_idx][split_ind[0], :]
             trn_t_y = s_label[ split_ind[0] ]
             
-            # cv loop 
-            for cv in range( n_trn_tst_cvs ):
 
-                # train the model on data from this timepoint using train data
-                model.fit( trn_t_data,trn_t_y )
-                
-                # inner loop over timepoints to generalize the trained model
-                for tt_idx,tt in enumerate( range( 0,n_tmpts,w_size ) ):   
-                
-                    # test data for this timepoint
-                    tst_t_data = np.mean( r_mat[tt:tt+w_size,split_ind[1],:],axis=0 )
-                    tst_t_y = s_label[ split_ind[1] ]                    
-                
-                    # get predictions based on test data
-                    pred_val = model.predict( tst_t_data )
-                    
-                    # compute overall mean acc
-                    over_acc[cv,t_idx,tt_idx] = np.sum( pred_val==tst_t_y ) / len(tst_t_y)    
-                    
-                    #then compute acc for each stim at this timepoint
-                    for us in u_stims:
-                        # index of trials in test set that are the
-                        # current stim (us)
-                        s_idx = np.where( tst_t_y==us )[0]
-                        stim_acc[ us,cv,t_idx,tt_idx ] = np.sum( pred_val[ s_idx ]==us ) / len(s_idx)             
+            # train the model on data from this timepoint using train data
+            model.fit( trn_t_data,trn_t_y )
             
-        # then avg accs over cv folds before returning
-        over_acc = np.mean( over_acc,axis=0 )
-        stim_acc = np.mean( stim_acc,axis=1 )        
+            # inner loop over timepoints to generalize the trained model
+            for tt_idx,tt in enumerate( range( 0,n_tmpts,w_size ) ):   
+            
+                # test data for this timepoint
+                tst_t_data = np.mean( r_mat[tt:tt+w_size,split_ind[1],:],axis=0 )
+                tst_t_y = s_label[ split_ind[1] ]                    
+            
+                # get predictions based on test data
+                pred_val = model.predict( tst_t_data )
+                
+                # Overall accuracy
+                over_acc[t_idx,tt_idx] = np.sum( pred_val==tst_t_y ) / len(tst_t_y)    
+                
+                # Per-class accuracy
+                cm = confusion_matrix(tst_t_y, pred_val, labels=u_stims)
+                stim_acc[:, t_idx, tt_idx] = np.diag(cm) / cm.sum(axis=1)                
 
-    # return over 
+    # return decoding accuracy
     return over_acc,stim_acc
 
 
