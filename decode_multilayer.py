@@ -18,6 +18,7 @@ from helper_funcs import *
 from rdk_task import RDKtask
 import matplotlib.colors
 from numpy import trapezoid
+from model_count import count_models
 
 # set up some nice colors (from Robert and Nuttida)
 hex_c = ['#06D2AC', '#206975', '#6F3AA4', '#2B1644']
@@ -28,11 +29,11 @@ hex_c = ['#06D2AC', '#206975', '#6F3AA4', '#2B1644']
 device = 'cpu'                    # device to use for loading/eval model
 task_type = 'rdk_repro_cue'                 # task type (conceptually think of as a motion discrimination task...)         
 n_afc = 6                       # number of stimulus alternatives
-T = 200                           # timesteps in each trial
+T = 225                          # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
-stim_prob = 0.8     # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
-stim_prob_to_eval = 1/n_afc           # eval the model at this prob level (stim_prob is used to determine which trained model to use)
+stim_prob = 1/n_afc          # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+stim_prob_to_eval = stim_prob          # eval the model at this prob level (stim_prob is used to determine which trained model to use)
 stim_amps_train = 1.0                # can make this a list of amps and loop over... 
 stim_amps = 1.0
 stim_noise_train = 0.1
@@ -42,8 +43,9 @@ acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_
 weighted_loss = 0                       #  0 = nw_mse l2 or 1 = weighted mse
 noise_internal = 0.1            # noise trained at 0.1
 num_cues = 2
-cue_on = stim_on+stim_dur
+cue_on = 75 
 cue_dur = T-cue_on
+cue_layer = 1
 
 if task_type == 'rdk':
     fn_stem = 'trained_models_rdk/gonogo_'
@@ -52,7 +54,7 @@ elif task_type == 'rdk_reproduction':
     fn_stem = 'trained_models_rdk_reproduction/repro_'
     out_size = n_afc  
 elif task_type == 'rdk_repro_cue':
-    fn_stem = 'trained_models_rdk_repro_cue/reprocue_'
+    fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
     out_size = n_afc  
 
 
@@ -61,8 +63,9 @@ elif task_type == 'rdk_repro_cue':
 # decoding params
 #--------------------------
 trn_prcnt = 0.8    # percent of data to use for training
-n_trn_tst_cvs = 5  # how many train/test cv folds
-time_or_xgen = 0   # decode timepnt x timepnt or do full xgen matrix 
+n_cvs = 5          # how many train/test cv folds
+classes = 'stim'   # which are we decoding stim or choice
+time_or_xgen = 1   # decode timepnt x timepnt or do full xgen matrix 
 w_size = 5         # mv_avg window size
 num_cs = 1         # number of C's to grid search, if 1 then C=1
 n_cvs_for_grid = 5 # num cv folds of training data to find best C
@@ -85,7 +88,7 @@ task = RDKtask( settings )
 #--------------------------
 # How many trained models in this cond
 #--------------------------
-n_models = 6
+n_models = count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, weighted_loss, task_type, fn_stem, directory = os.getcwd())
 n_layers = 3
 
 #--------------------------
@@ -97,7 +100,8 @@ if time_or_xgen == 0:
     stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size ),np.nan )
 else:
     over_acc = np.full( ( n_models,n_layers,T//w_size,T//w_size ),np.nan )
-    stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size,T//w_size ),np.nan )    
+    stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size,T//w_size ),np.nan ) 
+      
 
 
 for m_num in np.arange( n_models ):
@@ -133,36 +137,33 @@ for m_num in np.arange( n_models ):
     outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc,cues = eval_model( net, task, sr_scram )
     
     # s_label is a diff shape for cue version, deal with if statement later
-    s_label = np.argmax(s_label, axis=1)
+    s_label_int = np.argmax(s_label, axis=1)
     
-    # quick plots - first expected, correct and incorrect trials
-    plt.plot(np.squeeze( outputs[ :,(s_label==0) & (tbt_acc==1),0 ] ), c=hex_c[0], alpha=0.25 )
-    plt.plot(np.squeeze( outputs[ :,(s_label==0) & (tbt_acc==0),0 ] ), c=hex_c[1], alpha=0.25 )
-    plt.xlabel('Time Step')
-    plt.ylabel('Output')
-    plt.title(f'expected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
-    plt.show()
-    
-    # quick plots - the unexpected, correct and incorrect trials
-    blues = plt.cm.Blues(np.linspace(0.4, 0.9, out_size))  # Skip very light colors
-    reds = plt.cm.Reds(np.linspace(0.4, 0.9, out_size))
-    # Convert RGBA to hex
-    hex_c_correct = [matplotlib.colors.rgb2hex(c[:3]) for c in blues]
-    hex_c_incorrect = [matplotlib.colors.rgb2hex(c[:3]) for c in reds]
-    for i in np.arange(out_size):
-        plt.plot(np.squeeze( outputs[ :,(s_label!=0) & (tbt_acc==1),i ] ), c=hex_c_correct[i], alpha=0.25 )
-        plt.plot(np.squeeze( outputs[ :,(s_label!=0) & (tbt_acc==0),i ] ), c=hex_c_incorrect[i], alpha=0.25 )
-        plt.xlabel('Time Step')
-        plt.ylabel('Output')
-    #plt.ylim((-0.2,1.1))
-    plt.title(f'unexpected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
-    plt.show()
-    
-
+    layer_data = [h1, h2, h3]
     #  decoding
     for l_num in np.arange(n_layers):
-        over_acc[m_num,l_num, :], stim_acc[m_num, l_num,:,:] = decode_svc(stim_prob, h1, s_label, trn_prcnt, n_trn_tst_cvs, time_or_xgen, w_size, num_cs, n_cvs_for_grid, max_iter)
         
+        if time_or_xgen == 0:
+            tmp_over_acc = np.full((n_cvs,T//w_size),np.nan)
+            tmp_stim_acc = np.full((n_cvs,n_afc,T//w_size),np.nan)
+        else:
+            tmp_over_acc = np.full( ( n_cvs,T//w_size,T//w_size ),np.nan )
+            tmp_stim_acc = np.full( ( n_cvs,n_afc,T//w_size,T//w_size ),np.nan )    
+        
+        
+        for cv in range( n_cvs ):
+            if classes == 'stim':
+                tmp_over_acc[cv,:], tmp_stim_acc[cv,:,:] = decode_ls_svm(layer_data[l_num], s_label_int, n_afc, w_size, time_or_xgen, trn_prcnt)          
+            elif classes == 'choice':
+                # Step 1: Average output over the response window
+                mean_outputs = np.mean(outputs[stim_on:, :, :], axis=0)  # shape: (n_trials, n_stims)
+                # Step 2: Decode the choice (argmax across stimulus channels)
+                choice_labels = np.argmax(mean_outputs, axis=1)  # shape: (n_trials,)
+                tmp_over_acc[cv,:], tmp_stim_acc[cv,:,:] = decode_ls_svm(layer_data[l_num], s_label_int, n_afc, w_size, time_or_xgen, trn_prcnt)
+        # average over cvs
+        over_acc[m_num,l_num,:] = np.mean(tmp_over_acc,axis=0)
+        stim_acc[m_num,l_num,:,:] = np.mean(tmp_stim_acc,axis=0)
+        #print(f"done decoding {classes} for layer {l_num}")
 
 #npz_name = f'plots/decoding/across_layers/{fn[15:-4]}0-{n_models -1}_ext_n{stim_noise}_int_n{noise_internal}.npz'
 #np.savez( npz_name, over_acc = over_acc, stim_acc = stim_acc )
@@ -224,7 +225,7 @@ if time_or_xgen == 0:
     # Get handles and labels from one axis (e.g., the last one used)
     handles, labels = ax.get_legend_handles_labels()
 
-    #fig.suptitle(f'Decoding Accuracy {n_afc}-n_afc {int(stim_prob*100)}-stim_prob {stim_amps}-stim_amp {stim_noise}-stim_noise', fontsize=16)
+    fig.suptitle(f'Decoding Accuracy {n_afc}-n_afc {int(stim_prob*100)}-stim_prob cue_on{cue_on} n_models{m_num+1}', fontsize=16)
 
     # Final layout tweaks
     plt.tight_layout(rect=[0, 0, 1, 0.88])  # Leave space for the legend
@@ -244,28 +245,90 @@ if time_or_xgen == 0:
 else:
     
     print('plotting cross generalization')
-    
-    # plot mean decoding over models
-    m_over_acc = np.mean(over_acc,axis=0)
-    m_stim_acc = np.mean(stim_acc,axis=0)
-    
-    # overall acc
-    plt.imshow(m_over_acc,origin='lower',aspect='equal')
-    plt.colorbar()
-    plt.title(f'{n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss overall')
+
+    # plot overall xgen
+    # Set grid size
+    ncols = 3  # e.g., 3 columns per row
+    nrows = 1
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 6 * nrows))
+
+    plt.rcParams.update({
+        'font.size': 16,           # base font size
+        'axes.titlesize': 18,      # subplot titles
+        'axes.labelsize': 16,      # axis labels
+        'xtick.labelsize': 16,     # x-axis tick labels
+        'ytick.labelsize': 16,     # y-axis tick labels
+        'legend.fontsize': 14,     # legend text
+        'figure.titlesize': 18     # suptitle font
+    })
+        
+    for layer in np.arange(n_layers):
+
+        m_over_acc = np.mean(over_acc[:,layer, :,:], axis=0)
+        ax = axes[layer]
+        ax.imshow(m_over_acc,origin='lower',aspect='equal')
+        ax.set_title(f'layer {layer+1}')
+
+    fig.suptitle(f'Decoding xgen {n_afc}-n_afc {int(stim_prob*100)}-stim_prob cue_on{cue_on} n_models{m_num+1}', fontsize=16)
+
     plt.show()
     
-    # for each stim - first expected
-    plt.imshow(m_stim_acc[0,:,:],origin='lower',aspect='equal')
-    plt.colorbar()
-    plt.title(f'{n_afc}-afc {stim_amps}s-amp {weighted_loss}-weighted_loss expected')
-    plt.show()    
+    # plot expected xgen
+    # Set grid size
+    ncols = 3  # e.g., 3 columns per row
+    nrows = 1
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 6 * nrows))
+
+    plt.rcParams.update({
+        'font.size': 16,           # base font size
+        'axes.titlesize': 18,      # subplot titles
+        'axes.labelsize': 16,      # axis labels
+        'xtick.labelsize': 16,     # x-axis tick labels
+        'ytick.labelsize': 16,     # y-axis tick labels
+        'legend.fontsize': 14,     # legend text
+        'figure.titlesize': 18     # suptitle font
+    })
+        
+    for layer in np.arange(n_layers):
+
+        m_stim_acc = np.mean(stim_acc[:,layer, 0,:], axis=0)
+        ax = axes[layer]
+        ax.imshow(m_stim_acc,origin='lower',aspect='equal')
+        ax.set_title(f'layer {layer+1}')
+
+    fig.suptitle(f'Decoding xgen expected {n_afc}-n_afc {int(stim_prob*100)}-stim_prob cue_on{cue_on} n_models{m_num+1}', fontsize=16)
+
+    plt.show()
     
-    # for each stim - then avg of unexpected
-    plt.imshow(np.mean(m_stim_acc[1:,:,:],axis=0),origin='lower',aspect='equal')
-    plt.colorbar()
-    plt.title(f'{n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss unexpected')
-    plt.show()        
+    # plot unexpected xgen
+    # Set grid size
+    ncols = 3  # e.g., 3 columns per row
+    nrows = 1
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 6 * nrows))
+
+    plt.rcParams.update({
+        'font.size': 16,           # base font size
+        'axes.titlesize': 18,      # subplot titles
+        'axes.labelsize': 16,      # axis labels
+        'xtick.labelsize': 16,     # x-axis tick labels
+        'ytick.labelsize': 16,     # y-axis tick labels
+        'legend.fontsize': 14,     # legend text
+        'figure.titlesize': 18     # suptitle font
+    })
+        
+    for layer in np.arange(n_layers):
+
+        m_stim_acc = np.mean(np.mean(stim_acc[:,layer, 1:,:], axis=0), axis =0)
+        ax = axes[layer]
+        ax.imshow(m_stim_acc,origin='lower',aspect='equal')
+        ax.set_title(f'layer {layer+1}')
+
+    fig.suptitle(f'Decoding xgen unexpected {n_afc}-n_afc {int(stim_prob*100)}-stim_prob cue_on{cue_on} n_models{m_num+1}', fontsize=16)
+
+    plt.show()
     
     
 # at the end remind me which one we were working on  
