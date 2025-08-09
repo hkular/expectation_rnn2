@@ -25,45 +25,45 @@ from rdk_task import RDKtask
 # python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 --stim_amps 1.0 --stim_prob_mode biased --cue_onset 0 --cue_layer_num 3
 
 # parse input args...
-# parser = argparse.ArgumentParser(description='Training RDK Task RNNs')
-# parser.add_argument('--N', required=False,type=int,
-#         default='10', help="How many models?")
-# parser.add_argument('--gpu', required=False,
-#         default='0', help="Which gpu?")
-# parser.add_argument('--task', required=True,
-#         help="Which task: repro or repro_cue?")
-# parser.add_argument('--n_afc', required=True,type=int, default='6',
-#         help="How many stimulus alternatives?")
-# parser.add_argument('--int_noise', required=True,type=float, default='0.1',
-#         help="What additive (internal) noise do you want?")
-# parser.add_argument('--ext_noise', required=True,type=float, default='0.1',
-#         help="What stim (external) noise do you want?")
-# parser.add_argument('--n_cues', required=True,type=int, default='2',
-#         help="Number of s->r cues?")
-# parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
-#     help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
-# parser.add_argument('--stim_prob_mode', type=str, default='biased',
-#     help='Stimulus probability(e.g., biased or unbiased or both)')
-# parser.add_argument('--cue_onset', required = True, type=int,
-#     help='When does the cue come on (75 or 0)?')
-# parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
-#     help='Which layer receives cue (1,2,3)?')
-# args = parser.parse_args()
+parser = argparse.ArgumentParser(description='Training RDK Task RNNs')
+parser.add_argument('--N', required=False,type=int,
+        default='10', help="How many models?")
+parser.add_argument('--gpu', required=False,
+        default='0', help="Which gpu?")
+parser.add_argument('--task', required=True,
+        help="Which task: repro or repro_cue?")
+parser.add_argument('--n_afc', required=True,type=int, default='6',
+        help="How many stimulus alternatives?")
+parser.add_argument('--int_noise', required=True,type=float, default='0.1',
+        help="What additive (internal) noise do you want?")
+parser.add_argument('--ext_noise', required=True,type=float, default='0.1',
+        help="What stim (external) noise do you want?")
+parser.add_argument('--n_cues', required=True,type=int, default='2',
+        help="Number of s->r cues?")
+parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
+    help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
+parser.add_argument('--stim_prob_mode', type=str, default='biased',
+    help='Stimulus probability(e.g., biased or unbiased or both)')
+parser.add_argument('--cue_onset', required = True, type=int,
+    help='When does the cue come on (75 or 0)?')
+parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
+    help='Which layer receives cue (1,2,3)?')
+args = parser.parse_args()
 
 # for easy debugging
-parser = argparse.ArgumentParser(description='Training Sensory Recruit RNNs')
-args = parser.parse_args()
-args.N=1
-args.gpu=0
-args.task= 'rdk_repro_cue'
-args.n_afc=6
-args.int_noise=0.1
-args.ext_noise=0.1
-args.n_cues=2
-args.stim_amps=[1.0]
-args.stim_prob_mode='biased'
-args.cue_onset=0
-args.cue_layer_num=3
+# parser = argparse.ArgumentParser(description='Training Sensory Recruit RNNs')
+# args = parser.parse_args()
+# args.N=1
+# args.gpu=0
+# args.task= 'rdk_repro_cue'
+# args.n_afc=6
+# args.int_noise=0.1
+# args.ext_noise=0.1
+# args.n_cues=2
+# args.stim_amps=[1.0]
+# args.stim_prob_mode='biased'
+# args.cue_onset=0
+# args.cue_layer_num=3
 
 
 # check for available devices 
