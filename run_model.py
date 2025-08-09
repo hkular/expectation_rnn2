@@ -22,33 +22,48 @@ from rdk_task import RDKtask
 
 
 # example cmd line...
-# python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 --stim_amps 1.0 --stim_prob_mode biased --cue_onset stim_offset --cue_layer_num 3
+# python run_model.py --N 10 --gpu 1 --task rdk_repro_cue --n_afc 6 --int_noise 0.1 --ext_noise 0.1  --n_cues 2 --stim_amps 1.0 --stim_prob_mode biased --cue_onset 0 --cue_layer_num 3
 
 # parse input args...
-parser = argparse.ArgumentParser(description='Training RDK Task RNNs')
-parser.add_argument('--N', required=False,type=int,
-        default='10', help="How many models?")
-parser.add_argument('--gpu', required=False,
-        default='0', help="Which gpu?")
-parser.add_argument('--task', required=True,
-        help="Which task: repro or repro_cue?")
-parser.add_argument('--n_afc', required=True,type=int, default='6',
-        help="How many stimulus alternatives?")
-parser.add_argument('--int_noise', required=True,type=float, default='0.1',
-        help="What additive (internal) noise do you want?")
-parser.add_argument('--ext_noise', required=True,type=float, default='0.1',
-        help="What stim (external) noise do you want?")
-parser.add_argument('--n_cues', required=True,type=int, default='2',
-        help="Number of s->r cues?")
-parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
-    help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
-parser.add_argument('--stim_prob_mode', type=str, default='biased',
-    help='Stimulus probability(e.g., biased or unbiased or both)')
-parser.add_argument('--cue_onset', required = True, type =str, default = 'stim_offset',
-    help='When does the cue come on (stim_offset or beginning)?')
-parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
-    help='Which layer receives cue (1,2,3)?')
+# parser = argparse.ArgumentParser(description='Training RDK Task RNNs')
+# parser.add_argument('--N', required=False,type=int,
+#         default='10', help="How many models?")
+# parser.add_argument('--gpu', required=False,
+#         default='0', help="Which gpu?")
+# parser.add_argument('--task', required=True,
+#         help="Which task: repro or repro_cue?")
+# parser.add_argument('--n_afc', required=True,type=int, default='6',
+#         help="How many stimulus alternatives?")
+# parser.add_argument('--int_noise', required=True,type=float, default='0.1',
+#         help="What additive (internal) noise do you want?")
+# parser.add_argument('--ext_noise', required=True,type=float, default='0.1',
+#         help="What stim (external) noise do you want?")
+# parser.add_argument('--n_cues', required=True,type=int, default='2',
+#         help="Number of s->r cues?")
+# parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
+#     help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
+# parser.add_argument('--stim_prob_mode', type=str, default='biased',
+#     help='Stimulus probability(e.g., biased or unbiased or both)')
+# parser.add_argument('--cue_onset', required = True, type=int,
+#     help='When does the cue come on (75 or 0)?')
+# parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
+#     help='Which layer receives cue (1,2,3)?')
+# args = parser.parse_args()
+
+# for easy debugging
+parser = argparse.ArgumentParser(description='Training Sensory Recruit RNNs')
 args = parser.parse_args()
+args.N=1
+args.gpu=0
+args.task= 'rdk_repro_cue'
+args.n_afc=6
+args.int_noise=0.1
+args.ext_noise=0.1
+args.n_cues=2
+args.stim_amps=[1.0]
+args.stim_prob_mode='biased'
+args.cue_onset=0
+args.cue_layer_num=3
 
 
 # check for available devices 
@@ -78,7 +93,7 @@ set_rand_seed = 1
 # task params
 task_type = args.task             # task type (conceptually think of as a motion discrimination task...) 
 n_afc = args.n_afc                # number of stimulus alternatives
-T = 225                           # timesteps in each trial
+T = 210                           # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
 stim_amps = args.stim_amps        # list of amp of stim amps (will loop over these during training)
@@ -88,11 +103,11 @@ acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_
 
                                   # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
 if args.stim_prob_mode == 'biased':  
-    stim_probs = [0.8]
+    stim_probs = [0.7]
 elif args.stim_prob_mode == 'unbiased':
     stim_probs = [1/n_afc]
 elif args.stim_prob_mode == 'both':
-    stim_probs = [0.8, 1/n_afc]
+    stim_probs = [0.7, 1/n_afc]
             
 
 # a few general params for all layers
@@ -115,10 +130,12 @@ W_cue_scalar = 1.0                # scalar for the weights in the input matrix
 bias_cue_scalar = 0.0             # 0 for no bias...
 W_cue_trainable = False           # w_in trainable? 
 bias_cue_trainable = False        # bias_in trainable?
-if args.cue_onset == 'stim_offset':
+if args.cue_onset == 75:
     cue_on = stim_on+stim_dur         # cue comes on when stim goes off
-elif args.cue_onset == 'beginning':
+elif args.cue_onset == 0:
     cue_on = 0
+else:
+    print(f'Invalid cue_on,  are sure you want {cue_on}?')
 cue_dur = T-cue_on                # cue stays on the rest of the trial
 
 # general params for hidden layers - lists (or list of lists) 
@@ -165,7 +182,7 @@ bias_out_trainable = True     # allow bias to be trained?
 
 # model training params
 loss_crit = 0.001             # stop training if loss < loss_crit 
-acc_crit = 0.95               # or stop training if prediction acc is > acc_crit
+acc_crit = 0.90               # or stop training if prediction acc is > acc_crit
 
 #--------------------------------
 # Model training params
@@ -194,9 +211,9 @@ for m_num in range( model_offset,model_offset+n_models ):
         np.random.seed( m_num )    
     
     # dict of params to init the network
-    rnn_settings = {'task_type' : task_type, 'batch_size' : batch_size,'stim_on' : stim_on, 'noise' : noise, 'dt' : dt, 'act_func' : act_func, 
+    rnn_settings = {'task_type' : task_type, 'batch_size' : batch_size,'T' : T ,'stim_on' : stim_on, 'noise' : noise, 'dt' : dt, 'act_func' : act_func, 
                     'inp_size' : inp_size, 'W_inp_scalar' : W_inp_scalar, 'bias_inp_scalar' : bias_inp_scalar, 'W_inp_trainable' : W_inp_trainable,
-                    'bias_inp_trainable' : bias_inp_trainable, 'cue_layer_num': cue_layer_num,'num_cues' : num_cues, 'W_cue_scalar' : W_cue_scalar, 'bias_cue_scalar' : bias_cue_scalar,
+                    'bias_inp_trainable' : bias_inp_trainable, 'cue_on': cue_on,'cue_layer_num': cue_layer_num,'num_cues' : num_cues, 'W_cue_scalar' : W_cue_scalar, 'bias_cue_scalar' : bias_cue_scalar,
                     'W_cue_trainable' : W_cue_trainable, 'bias_cue_trainable' : bias_cue_trainable,
                     'n_h_layers' : n_h_layers, 'h_size' : h_size, 'h_tau' : h_tau, 'h_tau_trainable' : h_tau_trainable,
                     'p_rec' : p_rec, 'p_inh' : p_inh, 'apply_dale' : apply_dale, 'w_dist' : w_dist, 'w_gain' : w_gain, 'bias_scalar' : bias_scalar, 'W_h_trainable' : W_h_trainable, 
