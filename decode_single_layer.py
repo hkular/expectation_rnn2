@@ -45,21 +45,21 @@ n_afc = 6                         # number of stimulus alternatives
 T = 225                           # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
-stim_prob = 1/n_afc                   # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
-stim_prob_to_eval = 1/n_afc       # eval the model at this prob level
+stim_prob = 0.8                   # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+stim_prob_to_eval = 0.8       # eval the model at this prob level
 stim_amps_train = 1.0             # stim amplitude during training
 stim_amps = 1.0                   # stim amplitude during eval
 stim_noise_train = 0.1            # external stim noise during training  
 stim_noise = 0.1                  # magnitude of randn background noise in the stim channel for eval
-batch_size = 1000                 # number of trials in each batch
+batch_size = 2000                 # number of trials in each batch
 acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_thresh during target window is correct
 weighted_loss = 0                 #  0 = nw_mse l2 or 1 = weighted mse
 noise_internal = 0.1              # trained under 0.1 try 0.25 
 num_cues = 2                      # how many s->r cues
-cue_on = 75         # cue comes on after stim goes off
+cue_on = 0        # cue comes on after stim goes off
 cue_dur = T-cue_on                # cue stays on until the end
 out_size = n_afc                  # n_afc outputs in reproduction task
-fn_stem = 'trained_models_rdk_repro_cue/timing_225_cueon_0/cue_layer3/reprocue_'
+fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer3/reprocue_'
 plots = False
 
 # if torch.backends.mps.is_available():
@@ -91,7 +91,7 @@ max_iter = 5000    # max iterations
 #--------------------------
 settings = {'task' : task_type, 'n_afc' : n_afc, 'T' : T, 'stim_on' : stim_on, 'stim_dur' : stim_dur,
             'stim_prob' : stim_prob_to_eval, 'stim_amp' : stim_amps, 'stim_noise' : stim_noise, 'batch_size' : batch_size, 
-            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':150}
+            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':cue_dur}
 
 # create the task object
 task = RDKtask( settings )
