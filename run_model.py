@@ -199,7 +199,7 @@ learning_rate = 0.01
 # multiple GPUs
 #--------------------------------
 n_models = args.N           
-model_offset = 0
+model_offset = 7
 
 for m_num in range( model_offset,model_offset+n_models ):
 

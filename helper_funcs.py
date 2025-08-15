@@ -13,12 +13,13 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import LinearSVC
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.linear_model import RidgeClassifier
+import gc
 
 # load the model, turn off grads
 def load_model( fn,device ): 
     
     # load model...
-    model = torch.load(fn,map_location=torch.device(device))
+    model = torch.load(fn,map_location=torch.device(device), weights_only=False)
 
     # set it to eval (not training)
     model.eval()
@@ -43,6 +44,28 @@ def load_model_cuda( fn, cuda_num ):
         param.requires_grad = False
     return model
 
+
+def load_model_mps(fn):
+    if not torch.backends.mps.is_available():
+        raise RuntimeError("MPS backend is not available on this machine.")
+    
+    mps_device = torch.device("mps")
+    torch.set_default_device(mps_device)
+    
+    # Step 1: load to CPU so CUDA storage keys get translated
+    model = torch.load(fn, map_location=torch.device("cpu"), weights_only=False)
+    
+    # Step 2: move model to MPS
+    model.to(mps_device)
+    
+    # Step 3: set eval mode and disable grads
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    return model
+    
+    return model
 # eval a batch of trials with a trained model
 def eval_model( model, task, sr_scram ):
     
@@ -112,9 +135,309 @@ def eval_model( model, task, sr_scram ):
     tau1 = tau1.cpu().detach().numpy()
     tau2 = tau2.cpu().detach().numpy()
     tau3 = tau3.cpu().detach().numpy()
+    
+    # get h layer weights
+    w1 = model.recurrent_layer.h_layer1.weight.cpu().detach().numpy()
+    w2 = model.recurrent_layer.h_layer2.weight.cpu().detach().numpy()
+    w3 = model.recurrent_layer.h_layer3.weight.cpu().detach().numpy()
+    
+    # get exc and inh units
+    exc1 = np.where( np.sum( w1, axis =0 )>= 0 )[0]    
+    inh1 = np.where( np.sum( w1, axis =0 )< 0 )[0]  
+    exc2 = np.where( np.sum( w2, axis =0 )>= 0 )[0]    
+    inh2 = np.where( np.sum( w2, axis =0 )< 0 )[0]  
+    exc3 = np.where( np.sum( w3, axis =0 )>= 0 )[0]    
+    inh3 = np.where( np.sum( w3, axis =0 )< 0 )[0]  
 
-    return outputs,s_label,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau1,tau3,m_acc,tbt_acc,cues
+    return outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau1,tau3,m_acc,tbt_acc,cues
 
+#----------------------------------------------
+# eval a bunch of mini-batches and concatenate to get a target number of
+# correct and incorrect trials
+#----------------------------------------------
+def eval_model_batch( model, task, sr_scram, internal_noise, n_afc, num_targ_trials ):
+    # set noise
+    model.recurrent_layer.noise = internal_noise
+    # get the weights
+    w1 = model.recurrent_layer.h_layer1.weight.cpu().detach().numpy()
+    w2 = torch.matmul(model.h_layer1.mff_12, torch.relu(model.h_layer1.wff_12)).cpu().detach().numpy()
+    w3 = torch.matmul(model.h_layer2.mff_23, torch.relu(model.h_layer2.wff_23)).cpu().detach().numpy()
+    torch.matmul(model.h_layer2.mfb_21, torch.relu(model.h_layer2.wfb_21))
+    ff12_w = torch.matmul( model.recurrent_layer.h_layer1.mff12,torch.relu( model.recurrent_layer.h_layer1.wff12) ).cpu().detach().numpy()
+    fb21_w = torch.matmul( model.recurrent_layer.h_layer2.mfb21,torch.relu( model.recurrent_layer.h_layer2.wfb21 ) ).cpu().detach().numpy()
+    ff23_w = torch.matmul( model.recurrent_layer.h_layer2.mff23,torch.relu( model.recurrent_layer.h_layer2.wff23 ) ).cpu().detach().numpy()
+    fb32_w = torch.matmul( model.recurrent_layer.h_layer3.mfb32,torch.relu( model.recurrent_layer.h_layer3.wfb32 ) ).cpu().detach().numpy()
+    h2_mask_diag = torch.diag( model.recurrent_layer.h_layer2.mfb21 ).cpu().detach().numpy()
+    h3_mask_diag = torch.diag( model.recurrent_layer.h_layer3.mfb32 ).cpu().detach().numpy()
+    # get exc and inh units in h layers
+    exc1 = np.where( np.sum( w1,axis=0 )>=0 )[0]
+    inh1 = np.where( np.sum( w1,axis=0 )<0 )[0]
+    exc2 = np.where( h2_mask_diag == 1 )[0]
+    inh2 = np.where( h2_mask_diag == 0 )[0]
+    exc2 = np.where( h3_mask_diag == 1 )[0]
+    inh2 = np.where( h3_mask_diag == 0 )[0]
+    #---------------------------
+    # generate batches of inputs until we reach the
+    # target number of correct and incorrect trials
+    #---------------------------
+    acc = 0
+    enough = False
+    cor_done = np.zeros( n_afc )
+    incor_done = np.zeros( n_afc )
+    nb = 0
+    cor_cnt = 0
+    incor_cnt = 0
+    while ( enough == False ):
+        print(f'Batch num {nb}')
+        # generate inputs...
+        if task.task == 'rdk_repro':
+            inp,tmp_sp = task.generate_rdk_stim()
+            cues = np.zeros( (task.T, task.batch_size, task.n_stim_chans) )   # dummy, not used
+            cl = np.zeros( task.batch_size )                                  # cue label, dummy, not used
+        elif task.task == 'rdk_repro_cue':
+            inp,cues,tmp_sp,cl = task.generate_rdk_reproduction_cue_stim()             # also returns real cue inputs and real cue labels
+        # pass inputs...get outputs from trained model
+        with torch.no_grad():
+            tmp_outputs,tmp_h1,tmp_h2,tmp_ff,tmp_fb,tau1,tau2 = model( inp,cues )
+        # compute eval acc
+        if task.task == 'repro_dis':
+            tmp_tbt_acc, tmp_acc = task.compute_acc( tmp_outputs,tmp_sp )
+        elif task.task == 'repro_dis_cue':
+            tmp_tbt_acc,tmp_acc = task.compute_acc_cue( tmp_outputs,tmp_sp,sr_scram,cl )
+        # accumulate acc
+        acc += tmp_acc
+        print(f'Eval Accuracy on batch {nb}: {tmp_acc}')
+        # cat model results across batches
+        if nb == 0:
+            # number of possible stims...
+            n_stims = tmp_sp.shape[1] // 2
+            # flatten out the stim on each trial...
+            stims = tmp_sp[ :,:n_stims ].nonzero()[1]
+            # outputs = tmp_outputs
+            sp = {}
+            h1 = {}
+            h2 = {}
+            ff = {}
+            fb = {}
+            # loop over possible stims and fill up dicts...
+            for s in range( n_stims ):
+                sp[f'cor{s}'] = tmp_sp[ ( tmp_tbt_acc==1 ) & ( stims == s ),: ]
+                h1[f'cor{s}'] = tmp_h1[ :, ( tmp_tbt_acc==1 ) & ( stims == s ),: ]
+                h2[f'cor{s}'] = tmp_h2[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ]
+                ff[f'cor{s}'] = tmp_ff[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ]
+                fb[f'cor{s}'] = tmp_fb[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ]
+                sp[f'incor{s}'] = tmp_sp[ ( tmp_tbt_acc==0 ) & ( stims == s ),: ]
+                h1[f'incor{s}'] = tmp_h1[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ]
+                h2[f'incor{s}'] = tmp_h2[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ]
+                ff[f'incor{s}'] = tmp_ff[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ]
+                fb[f'incor{s}'] = tmp_fb[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ]
+        # start stacking
+        else:
+            # flatten out the stim on each trial...
+            stims = tmp_sp[ :,:n_stims ].nonzero()[1]
+            # loop over stims
+            for s in range( n_stims ):
+                # if we still need more of this stim, then concat, otherwise skip
+                if ( h1[f'cor{s}'].shape[1]<num_targ_trials ):
+                    sp[f'cor{s}'] = np.vstack( [ sp[f'cor{s}'],tmp_sp[ ( tmp_tbt_acc==1 ) & ( stims == s ),: ] ] )
+                    h1[f'cor{s}'] = torch.hstack( [ h1[f'cor{s}'],tmp_h1[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ] ] )
+                    h2[f'cor{s}'] = torch.hstack( [ h2[f'cor{s}'],tmp_h2[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ] ] )
+                    ff[f'cor{s}'] = torch.hstack( [ ff[f'cor{s}'],tmp_ff[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ] ] )
+                    fb[f'cor{s}'] = torch.hstack( [ fb[f'cor{s}'],tmp_fb[ :,( tmp_tbt_acc==1 ) & ( stims == s ),: ] ] )
+                else:
+                    cor_done[ s ] = 1
+                # if we still need more of this stim, then concat, otherwise skip
+                if ( h1[f'incor{s}'].shape[1]<num_targ_trials ):
+                    sp[f'incor{s}'] = np.vstack( [ sp[f'incor{s}'],tmp_sp[ ( tmp_tbt_acc==0 ) & ( stims == s ),: ] ] )
+                    h1[f'incor{s}'] = torch.hstack( [ h1[f'incor{s}'],tmp_h1[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ] ] )
+                    h2[f'incor{s}'] = torch.hstack( [ h2[f'incor{s}'],tmp_h2[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ] ] )
+                    ff[f'incor{s}'] = torch.hstack( [ ff[f'incor{s}'],tmp_ff[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ] ] )
+                    fb[f'incor{s}'] = torch.hstack( [ fb[f'incor{s}'],tmp_fb[ :,( tmp_tbt_acc==0 ) & ( stims == s ),: ] ] )
+                else:
+                    incor_done[ s ] = 1
+        # bail and truncate if we've had enough...
+        if ( np.all( cor_done==1 ) ) & ( np.all( incor_done==1 ) ):
+            # loop over stims to truncate extra if there are any...
+            for s in range( n_stims ):
+                sp[f'cor{s}'] = sp[f'cor{s}'][ :num_targ_trials,: ]
+                h1[f'cor{s}']  = h1[f'cor{s}'][ :,:num_targ_trials,: ]
+                h2[f'cor{s}'] = h2[f'cor{s}'][ :,:num_targ_trials,: ]
+                ff[f'cor{s}'] = ff[f'cor{s}'][ :,:num_targ_trials,: ]
+                fb[f'cor{s}'] = fb[f'cor{s}'][ :,:num_targ_trials,: ]
+                sp[f'incor{s}'] = sp[f'incor{s}'][ :num_targ_trials,: ]
+                h1[f'incor{s}'] = h1[f'incor{s}'][ :,:num_targ_trials,: ]
+                h2[f'incor{s}'] = h2[f'incor{s}'][ :,:num_targ_trials,: ]
+                ff[f'incor{s}'] = ff[f'incor{s}'][ :,:num_targ_trials,: ]
+                fb[f'incor{s}'] = fb[f'incor{s}'][ :,:num_targ_trials,: ]
+            # loop over stims make big arrays that have all stims stacked...
+            for s in range( n_stims ):
+                # init
+                if ( s==0 ):
+                    sp_cor = sp[f'cor{s}']
+                    h1_cor = h1[f'cor{s}']
+                    h2_cor = h2[f'cor{s}']
+                    ff_cor = ff[f'cor{s}']
+                    fb_cor = fb[f'cor{s}']
+                    sp_incor = sp[f'incor{s}']
+                    h1_incor = h1[f'incor{s}']
+                    h2_incor = h2[f'incor{s}']
+                    ff_incor = ff[f'incor{s}']
+                    fb_incor = fb[f'incor{s}']
+                # else concat to stack stims on top of each other.
+                else:
+                    sp_cor = np.vstack( [ sp_cor,sp[f'cor{s}'] ] )
+                    h1_cor = torch.hstack( [ h1_cor,h1[f'cor{s}'] ] )
+                    h2_cor = torch.hstack( [ h2_cor,h2[f'cor{s}'] ] )
+                    ff_cor = torch.hstack( [ ff_cor,ff[f'cor{s}'] ] )
+                    fb_cor = torch.hstack( [ fb_cor,fb[f'cor{s}'] ] )
+                    sp_incor = np.vstack( [ sp_incor,sp[f'incor{s}'] ] )
+                    h1_incor = torch.hstack( [ h1_incor,h1[f'incor{s}'] ] )
+                    h2_incor = torch.hstack( [ h2_incor,h2[f'incor{s}'] ] )
+                    ff_incor = torch.hstack( [ ff_incor,ff[f'incor{s}'] ] )
+                    fb_incor = torch.hstack( [ fb_incor,fb[f'incor{s}'] ] )
+            # bail on the while loop
+            enough = True
+        #clean up...
+        gc.collect()
+        torch.cuda.empty_cache()
+        #increment num batch counter
+        nb += 1
+    # detach tensors before returning so in numpy...
+    h1_cor = h1_cor.cpu().detach().numpy()
+    h2_cor = h2_cor.cpu().detach().numpy()
+    ff_cor = ff_cor.cpu().detach().numpy()
+    fb_cor = fb_cor.cpu().detach().numpy()
+    tau2 = tau2.cpu().detach().numpy()  # these should be the same as incor...
+    h1_incor = h1_incor.cpu().detach().numpy()
+    h2_incor = h2_incor.cpu().detach().numpy()
+    ff_incor = ff_incor.cpu().detach().numpy()
+    fb_incor = fb_incor.cpu().detach().numpy()
+    # compute mean acc
+    acc = acc / nb
+    #clean up...
+    gc.collect()
+    torch.cuda.empty_cache()
+    return sp_cor,sp_incor,cl,h1_cor,h1_incor,h2_cor,h2_incor,ff_cor,ff_incor,fb_cor,fb_incor,w1,w2,ff_w,fb_w,exc1,exc2,inh1,inh2,tau1,tau2,acc
+
+#----------------------------------------------
+# do decoding - either timepoint by timepoint
+# or x-time generalization on exc and inh units
+#----------------------------------------------
+def decode_ls_svm_exc_inh(r_mat, r_mat2, n_afc, stim_val, t_step, exc1, inh1, exc2, inh2, train_prcnt, n_cvs, tmpnt_or_cross_tmpnt, num_targ_trials):
+    """
+    least square SVM
+    Parameters
+    ----------
+    r_mat : matrix of rates (timepoints, neurons)
+    stim_val : which stimulus was presented on this trial
+    Returns
+    -------
+    pred acc for layer 1 and layer 2
+    """
+    # num neurons and num timepoints
+    n_tmpts = r_mat.shape[0]
+    n_trials = r_mat.shape[1]
+    trial_split = int( num_targ_trials * train_prcnt )   # for splitting into train and test sets
+    # separate out the exc and inh units
+    h1_exc = r_mat[ :,:,exc1 ]
+    h2_exc = r_mat2[ :,:,exc2 ]
+    h1_inh = r_mat[ :,:,inh1 ]
+    h2_inh = r_mat2[ :,:,inh2 ]
+    # num time steps
+    n_t_steps = n_tmpts // t_step
+    # start the cv loop
+    for cv in range( n_cvs ):
+        trn_ind = []
+        tst_ind = []
+        for s in range( n_afc ):
+            s_ind = np.where( stim_val==s )[0]
+            rnd_ind = np.random.permutation( len( s_ind ) )
+            trn_ind.append( s_ind[ rnd_ind[ :trial_split ] ].tolist() )
+            tst_ind.append( s_ind[ rnd_ind[ trial_split: ] ].tolist() )
+        # flatten
+        trn_ind = [ind for inds in trn_ind for ind in inds ]
+        tst_ind = [ind for inds in tst_ind for ind in inds ]
+        # generate training sets
+        h1_train_exc = h1_exc[ :,trn_ind,: ]
+        h1_train_inh = h1_inh[ :,trn_ind,: ]
+        h2_train_exc = h2_exc[ :,trn_ind,: ]
+        h2_train_inh = h2_inh[ :,trn_ind,: ]
+        # generate test sets
+        h1_test_exc = h1_exc[ :,tst_ind,: ]
+        h1_test_inh = h1_inh[ :,tst_ind,: ]
+        h2_test_exc = h2_exc[ :,tst_ind,: ]
+        h2_test_inh = h2_inh[ :,tst_ind,: ]
+        # train and test labels
+        train_lab = stim_val[ trn_ind ]
+        test_lab = stim_val[ tst_ind ]
+        # if training/testing separately on each timepoint
+        if tmpnt_or_cross_tmpnt == 0:
+            # alloc to store the circ corr between actual and pred
+            if cv == 0:
+                pred_acc_exc1 = np.full( ( n_cvs,n_t_steps ),np.nan )
+                pred_acc_inh1 = np.full( ( n_cvs,n_t_steps ),np.nan )
+                pred_acc_exc2 = np.full( ( n_cvs,n_t_steps ),np.nan )
+                pred_acc_inh2 = np.full( ( n_cvs,n_t_steps ),np.nan )
+        elif tmpnt_or_cross_tmpnt == 1:
+            # alloc to store the circ corr between actual and pred
+            if cv == 0:
+                pred_acc_exc1 = np.full( ( n_cvs,n_t_steps,n_t_steps ),np.nan )
+                pred_acc_inh1 = np.full( ( n_cvs,n_t_steps,n_t_steps ),np.nan )
+                pred_acc_exc2 = np.full( ( n_cvs,n_t_steps,n_t_steps ),np.nan )
+                pred_acc_inh2 = np.full( ( n_cvs,n_t_steps,n_t_steps ),np.nan )
+        # only go if there is at least one sample of each stim in each split
+        if ( len( np.unique( train_lab ) ) == n_afc ) & ( len( np.unique( test_lab ) ) == n_afc ):
+            # if training/testing separately on each timepoint
+            if tmpnt_or_cross_tmpnt == 0:
+                # loop over timepoints
+                for t_idx,t in enumerate( range( 0,n_tmpts,t_step ) ) :
+                    # (re)initialize models just to be safe
+                    ls_svm_model_h1_exc = RidgeClassifier( class_weight = 'balanced' )
+                    ls_svm_model_h1_inh = RidgeClassifier( class_weight = 'balanced' )
+                    ls_svm_model_h2_exc = RidgeClassifier( class_weight = 'balanced' )
+                    ls_svm_model_h2_inh = RidgeClassifier( class_weight = 'balanced' )
+                    # hidden layer 1
+                    # fit the ls svm ofr h1 exc
+                    ls_svm_model_h1_exc.fit( h1_train_exc[ t, : ],train_lab )
+                    # compute acc for h1 exc
+                    pred_acc_exc1[ cv,t_idx ]  = ls_svm_model_h1_exc.score( h1_test_exc[ t, : ],test_lab )
+                    # fit the h1 inh model
+                    ls_svm_model_h1_inh.fit( h1_train_inh[ t, : ],train_lab )
+                    # compute acc for h1
+                    pred_acc_inh1[ cv,t_idx ]  = ls_svm_model_h1_inh.score( h1_test_inh[ t, : ],test_lab )
+                    # hidden layer 2
+                    # fit the ls svm ofr h1 exc
+                    ls_svm_model_h2_exc.fit( h2_train_exc[ t, : ],train_lab )
+                    # compute acc for h1 exc
+                    pred_acc_exc2[ cv,t_idx ]  = ls_svm_model_h2_exc.score( h2_test_exc[ t, : ],test_lab )
+                    # fit the h2 inh model
+                    ls_svm_model_h2_inh.fit( h2_train_inh[ t, : ],train_lab )
+                    # compute acc for h1
+                    pred_acc_inh2[ cv,t_idx ]  = ls_svm_model_h2_inh.score( h2_test_inh[ t, : ],test_lab )
+            # generalize across time...
+            elif tmpnt_or_cross_tmpnt == 1:
+                # outer loop over timepoints
+                for t_idx,t in enumerate( range( 0,n_tmpts,t_step ) ) :
+                    # (re)initialize models just to be safe
+                    ls_svm_model_h1_exc = RidgeClassifier( class_weight = 'balanced' )
+                    ls_svm_model_h1_inh = RidgeClassifier( class_weight = 'balanced' )
+                    ls_svm_model_h2_exc = RidgeClassifier( class_weight = 'balanced' )
+                    ls_svm_model_h2_inh = RidgeClassifier( class_weight = 'balanced' )
+                    # fit the models
+                    ls_svm_model_h1_exc.fit( h1_train_exc[ t,:,: ], train_lab )
+                    ls_svm_model_h1_inh.fit( h1_train_inh[ t,:,: ], train_lab )
+                    ls_svm_model_h2_exc.fit( h2_train_exc[ t,:,: ], train_lab )
+                    ls_svm_model_h2_inh.fit( h2_train_inh[ t,:,: ], train_lab )
+                    # inner loop over timepoints
+                    for tt_idx,tt in enumerate( range( 0,n_tmpts,t_step ) ) :
+                        # compute acc for h1
+                        pred_acc_exc1[ cv,t_idx,tt_idx ] = ls_svm_model_h1_exc.score( h1_test_exc[ tt,:,: ],test_lab )
+                        pred_acc_inh1[ cv,t_idx,tt_idx ] = ls_svm_model_h1_inh.score( h1_test_inh[ tt,:,: ],test_lab )
+                        # compute acc for h2
+                        pred_acc_exc2[ cv,t_idx,tt_idx ] = ls_svm_model_h2_exc.score( h2_test_exc[ tt,:,: ],test_lab )
+                        pred_acc_inh2[ cv,t_idx,tt_idx ] = ls_svm_model_h2_inh.score( h2_test_inh[ tt,:,: ],test_lab )
+    # return mean pred acc across all cv folds
+    return np.nanmean( pred_acc_exc1,axis=0 ), np.nanmean( pred_acc_inh1,axis=0 ), np.nanmean( pred_acc_exc2,axis=0 ), np.nanmean( pred_acc_inh2,axis=0 )
 
 def decode_ls_svm(r_mat, s_label, n_afc, w_size, time_or_xgen, trn_prcnt):
     """
