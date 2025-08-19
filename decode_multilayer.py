@@ -67,9 +67,9 @@ parser.add_argument('--batch_size', required=False,type=int, default = 2000,
         help="How many trials to eval?")
 parser.add_argument('--weighted_loss', required=False,type=int, default = 0,
         help="Weighted loss (1) or unweighted loss(0)?")
-parser.add_argument('--fb21_scalar', required=False,type=int, default = 1.0,
+parser.add_argument('--fb21_scalar', required=False,type=float, default = 1.0,
         help="Feedback from layer 2 to 1 scalar?")
-parser.add_argument('--fb32_scalar', required=False,type=int, default = 1.0,
+parser.add_argument('--fb32_scalar', required=False,type=float, default = 1.0,
         help="Feedback from layer 3 to 2 scalar?")
 
 
