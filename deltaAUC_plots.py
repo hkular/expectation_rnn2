@@ -8,13 +8,14 @@ Created on Thu Aug 14 15:52:09 2025
 import numpy as np
 import matplotlib.pyplot as plt    # note: importing this in all files just for debugging stuff
 from scipy.stats import sem
+import scipy.stats as stats
 from helper_funcs import *
 from numpy import trapezoid
 import seaborn as sns
 import pandas as pd
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
-from statsmodels.stats.anova import AnovaRM
+import statsmodels.formula.api as smf
+import pingouin as pg
+
 #--------------------------
 # Basic model params
 #--------------------------
@@ -608,6 +609,80 @@ plt.subplots_adjust(bottom=0.2, left=0.12)
 #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
 g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cuelayer_cueon75.png", format="png", bbox_inches="tight")
 plt.show()
+
+#--------------------------
+# stats
+#--------------------------
+
+# make sure what's categorical is treated as such
+df['cue_on'] = df['cue_on'].astype('category')
+df['cue_layer'] = df['cue_layer'].astype('category')
+df['layer'] = df['layer'].astype('category')
+df['model'] = df['model'].astype('category')
+
+## full factorial (stim_prob × cue_on × cue_layer) with random intercepts for model
+mixed = smf.mixedlm(
+    "delta_AUC ~ C(stim_prob) * C(cue_on) * C(cue_layer) * C(layer)",
+    data=df,
+    groups=df["model"],       # random intercept per model
+    re_formula="~1"           # only random intercept (simplest)
+).fit()
+print(mixed.summary())
+
+## 1 sample t-test stim prob > 0
+for stim in df['stim_prob'].unique():
+    values = df.loc[df['stim_prob']==stim, 'delta_AUC']
+    t, p = stats.ttest_1samp(values, 0)
+    print(f"{stim}: mean={values.mean():.3f}, t={t:.2f}, p={p:.4f}")
+
+
+
+## stim_prob == biased only, 2x2 rm-ANOVA
+
+biased = df[df['stim_prob']=="Biased"]
+
+# cue_on x cue_layer x layer
+mixed_biased = smf.mixedlm(
+    "delta_AUC ~ C(cue_on) * C(cue_layer) * C(layer)",
+    data=biased,
+    groups=biased["model"],
+    re_formula="~1"
+).fit()
+print(mixed_biased.summary())
+
+# cue_on x cue_layer
+mixed_biased = smf.mixedlm(
+    "delta_AUC ~ C(cue_on) * C(cue_layer)",
+    data=biased,
+    groups=biased["model"],
+    re_formula="~1"
+).fit()
+print(mixed_biased.summary())
+
+# post-hoc pairwise comparison of cue_on in layers
+
+
+# Pairwise t-tests within each cue_layer
+for layer in biased['cue_layer'].unique():
+    tmp = biased[biased['cue_layer'] == layer]
+
+    ph = pg.pairwise_tests(
+        dv="delta_AUC",
+        within="cue_on",       # comparing Start vs Stim Offset
+        subject="model",       # repeated measure = model
+        data=tmp,
+        padjust="bonf",        # adjust for multiple testing
+        effsize="cohen",
+        alternative = 'greater'
+    )
+
+    print(f"\nPost-hoc within {layer}:")
+    print(ph)   # show full output so you see all columns
+
+
+
+
+
 
 
 
