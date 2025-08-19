@@ -9,12 +9,13 @@ Created on Wed Aug 13 18:29:11 2025
 import subprocess
 import itertools
 
+
 # Fixed args for every run
 base_cmd = [
     "python", "decode_multilayer.py",
     "--gpu", "1",
-    "--device", "cpu",
-    "--classes", "cue",
+    "--device", "cuda",
+    "--classes", "stim",
     "--stim_noise_train", "0.1",
     "--stim_noise_eval", "0.1",
     "--stim_amp_train", "1.0",
@@ -39,6 +40,8 @@ fb21_scalar_vals = [1.0,0.7,0.3,0.15,0]
 for time_or_xgen, cue_on, stim_prob, fb21_scalar in itertools.product(
     time_or_xgen_vals, cue_on_vals, stim_prob_vals, fb21_scalar_vals
 ):
+    
+    
     print(f"time_or_xgen={time_or_xgen}, cue_on={cue_on}, cue_layer={cue_layer}, stim_prob={stim_prob}, fb21_s={fb21_scalar}")
 
     cmd = base_cmd + [

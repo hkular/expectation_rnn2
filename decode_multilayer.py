@@ -210,6 +210,12 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
             fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'
         else:
             fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'  
+    
+    # fn out for npz file to store decoding data
+    if time_or_xgen == 0:
+        fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+    else:
+        fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
 
     # init dicts to store exc,inh indicies
     params_dict[ m_idx ] = {}
@@ -295,11 +301,6 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
             over_acc[m_num,l_num,:] = np.mean(tmp_over_acc,axis=0)
             stim_acc[m_num,l_num,:,:] = np.mean(tmp_stim_acc,axis=0)
        
-# fn out for npz file to store decoding data
-if time_or_xgen == 0:
-    fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-else:
-    fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
 
 # save out the data across models
 np.savez( fn_out,n_tmpts=T,
