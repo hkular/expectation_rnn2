@@ -151,6 +151,118 @@ def eval_model( model, task, sr_scram ):
 
     return outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau1,tau3,m_acc,tbt_acc,cues
 
+from cue_layer import *
+from inp_layer import *
+#----------------------------------------------
+# measure feedback contribution to determine 
+# what to scale down to
+#----------------------------------------------
+def measure_feedback_contributions(model, stims, cues, fb_scalars, rnn_settings):
+    """
+    Measure relative contribution of feedback currents in each layer of your 3-layer RNN.
+
+    Parameters
+    ----------
+    model : your RNN model (with h_layer1, h_layer2, h_layer3 defined)
+    inputs : torch.Tensor (batch x time x input_dim)
+    fb_scalars : list of floats, scaling factors to apply to feedback weights
+
+    Returns
+    -------
+    results : dict
+        Dictionary of {fb_scalar: {layer1: ratio, layer2: ratio}}
+        where ratio = ||I_fb|| / ||I_total|| averaged over time & batch.
+    """
+
+    results = {}
+    batch_size = stims.shape[1]
+    n_time = stims.shape[0]
+    
+    device = stims.device
+    
+    cue_layer = CueLayer( rnn_settings )
+    inp_layer = InpLayer( rnn_settings )
+    apply_dale = rnn_settings['apply_dale']
+    noise = rnn_settings['noise']
+    dt = rnn_settings['dt']
+    
+    for alpha in fb_scalars:
+        fb_frac_layer1 = 0.0
+        fb_frac_layer2 = 0.0
+    
+        # Initialize hidden states (small random numbers, as in forward)
+        next_x1 = torch.randn(batch_size, model.recurrent_layer.h_size1, device=device)/100
+        next_x2 = torch.randn(batch_size, model.recurrent_layer.h_size2, device=device)/100
+        next_x3 = torch.randn(batch_size, model.recurrent_layer.h_size3, device=device)/100
+    
+        r1 = model.recurrent_layer.act_func(next_x1)
+        r2 = model.recurrent_layer.act_func(next_x2)
+        r3 = model.recurrent_layer.act_func(next_x3)
+    
+        # scale taus
+        h_taus_sig1 = torch.sigmoid(model.recurrent_layer.h_layer1.h_taus_gaus)*(model.recurrent_layer.h_tau1[1]-model.recurrent_layer.h_tau1[0])+model.recurrent_layer.h_tau1[0]
+        h_taus_sig2 = torch.sigmoid(model.recurrent_layer.h_layer2.h_taus_gaus)*(model.recurrent_layer.h_tau2[1]-model.recurrent_layer.h_tau2[0])+model.recurrent_layer.h_tau2[0]
+        h_taus_sig3 = torch.sigmoid(model.recurrent_layer.h_layer3.h_taus_gaus)*(model.recurrent_layer.h_tau3[1]-model.recurrent_layer.h_tau3[0])+model.recurrent_layer.h_tau3[0]
+    
+        for t in range(n_time):
+            x_t = stims[t]
+    
+            # cue input if needed
+            cue1 = 0
+            cue2 = 0
+            cue3 = cue_layer(cues[t]) 
+    
+            # --- Layer 1 ---
+            stim_inp = inp_layer(x_t)
+            I_rec1 = model.recurrent_layer.h_layer1(r1)
+            fb_21 = model.recurrent_layer.h_layer2.mfb_21 @ model.recurrent_layer.h_layer2.wfb_21.T
+            fb_21 = torch.matmul(r2, torch.relu(fb_21) if apply_dale[1] else fb_21)
+            fb_21_scaled = alpha * fb_21
+    
+            I_total1 = stim_inp + I_rec1 + fb_21_scaled + cue1
+    
+            fb_frac_layer1 += (torch.norm(fb_21_scaled, dim=1) / (torch.norm(I_total1, dim=1)+1e-8)).mean().item()
+    
+            next_x1 = (1-(dt/h_taus_sig1))*next_x1 + (dt/h_taus_sig1)*I_total1
+            next_x1 += torch.randn_like(next_x1) * noise
+            r1 = torch.sigmoid(next_x1)
+    
+            # --- Layer 2 ---
+            ff_12 = model.recurrent_layer.h_layer1.mff_12 @ model.recurrent_layer.h_layer1.wff_12.T
+            ff_12 = torch.matmul(r1, torch.relu(ff_12) if apply_dale[0] else ff_12)
+    
+            fb_32 = model.recurrent_layer.h_layer3.mfb_32 @ model.recurrent_layer.h_layer3.wfb_32.T
+            fb_32 = torch.matmul(r3, torch.relu(fb_32) if apply_dale[2] else fb_32)
+            fb_32_scaled = alpha * fb_32
+    
+            I_rec2 = model.recurrent_layer.h_layer2(r2)
+            I_total2 = ff_12 + I_rec2 + fb_32_scaled + cue2
+    
+            fb_frac_layer2 += (torch.norm(fb_32_scaled, dim=1) / (torch.norm(I_total2, dim=1)+1e-8)).mean().item()
+    
+            next_x2 = (1-(dt/h_taus_sig2))*next_x2 + (dt/h_taus_sig2)*I_total2
+            next_x2 += torch.randn_like(next_x2) * noise
+            r2 = torch.sigmoid(next_x2)
+    
+            # --- Layer 3 ---
+            ff_23 = model.recurrent_layer.h_layer2.mff_23 @ model.recurrent_layer.h_layer2.wff_23.T
+            ff_23 = torch.matmul(r2, torch.relu(ff_23) if apply_dale[1] else ff_23)
+    
+            I_rec3 = model.recurrent_layer.h_layer3(r3)
+            I_total3 = ff_23 + I_rec3 + cue3
+            next_x3 = (1-(dt/h_taus_sig3))*next_x3 + (dt/h_taus_sig3)*I_total3
+            next_x3 += torch.randn_like(next_x3) * noise
+            r3 = torch.sigmoid(next_x3)
+    
+        # Average over time
+        results[alpha] = {
+            'layer1': fb_frac_layer1 / n_time,
+            'layer2': fb_frac_layer2 / n_time
+        }
+    
+    return results
+
+
 #----------------------------------------------
 # eval a bunch of mini-batches and concatenate to get a target number of
 # correct and incorrect trials

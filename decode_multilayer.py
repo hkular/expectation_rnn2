@@ -67,7 +67,10 @@ parser.add_argument('--batch_size', required=False,type=int, default = 2000,
         help="How many trials to eval?")
 parser.add_argument('--weighted_loss', required=False,type=int, default = 0,
         help="Weighted loss (1) or unweighted loss(0)?")
-
+parser.add_argument('--fb21_scalar', required=False,type=int, default = 1.0,
+        help="Feedback from layer 2 to 1 scalar?")
+parser.add_argument('--fb32_scalar', required=False,type=int, default = 1.0,
+        help="Feedback from layer 3 to 2 scalar?")
 
 
 args = parser.parse_args()
@@ -92,6 +95,8 @@ args = parser.parse_args()
 # args.int_noise_eval = 0.1
 # args.batch_size = 2000
 # args.weighted_loss = 0
+# args.fb21_scalar = 1.0
+# args.fb32_scalar = 1.0
 
 
 #--------------------------
@@ -119,13 +124,15 @@ int_noise_train = args.int_noise_train              # noise trained at 0.1
 int_noise_eval = args.int_noise_eval
 batch_size = args.batch_size                        # number of trials in each eval batch
 weighted_loss = args.weighted_loss                  # 0 = nw_mse l2 or 1 = weighted mse
+fb21_scalar = args.fb21_scalar                      # feedback scaled by? trained with 1.0
+fb32_scalar = args.fb32_scalar                      # feedback scaled by? trained with 1.0
 num_cues = 2                                        # how many sr_scram
 stim_on = 50                                        # timestep of stimulus onset
 stim_dur = 25                                       # stim duration
 cue_dur = T-cue_on                                  # on the rest of the trial
 acc_amp_thresh = 0.8                                # to determine acc of model output: > acc_amp_thresh during target window is correct
 h_size = 200                                        # how many units in a hidden layer
-plots = False                                      # only plot if not run through terminal
+plots = False                                       # only plot if not run through terminal
 iters = 200000                                      # cut off during training
 
 if task_type == 'rdk':
@@ -229,8 +236,14 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
         continue
     else:
     
+    
+        
         # update internal noise
         net.recurrent_layer.noise = int_noise_eval
+        # update fb21 and fb32
+        with torch.no_grad():
+            net.recurrent_layer.h_layer2.wfb_21.mul_(fb21_scalar)
+            net.recurrent_layer.h_layer3.wfb_32.mul_(fb32_scalar)
     
         # eval a batch of trials using the trained model
         outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc,cues = eval_model( net, task, sr_scram )
@@ -284,9 +297,9 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
        
 # fn out for npz file to store decoding data
 if time_or_xgen == 0:
-    fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse.npz'
+    fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
 else:
-    fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse.npz'
+    fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
 
 # save out the data across models
 np.savez( fn_out,n_tmpts=T,
