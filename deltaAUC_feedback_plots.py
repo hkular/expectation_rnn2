@@ -168,8 +168,8 @@ for stim_prob in stim_probs:
 
 
 # Close connections
-sftp.close()
-ssh.close()
+#sftp.close()
+#ssh.close()
 
 # create data frame
 df = pd.DataFrame(results)
