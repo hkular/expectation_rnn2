@@ -17,8 +17,8 @@ import pandas as pd
 import statsmodels.formula.api as smf
 import pingouin as pg
 from statsmodels.stats.anova import AnovaRM
-import paramiko
-from io import BytesIO
+#import paramiko
+#from io import BytesIO
 
 #--------------------------
 # Basic model params
@@ -81,13 +81,13 @@ results = []
 
 
 # connect to remote server repository
-ssh = paramiko.SSHClient()
-ssh.load_system_host_keys()
-ssh.connect("128.59.20.250", username="holly", allow_agent=True,
-    look_for_keys=True)
+#ssh = paramiko.SSHClient()
+#ssh.load_system_host_keys()
+#ssh.connect("128.59.20.250", username="holly", allow_agent=True,
+#    look_for_keys=True)
 
-sftp = ssh.open_sftp()
-remote_base = '/home/holly/expectation_rnn2.0/'
+#sftp = ssh.open_sftp()
+#remote_base = '/home/holly/expectation_rnn2.0/'
 
 
 for stim_prob in stim_probs:
@@ -101,12 +101,12 @@ for stim_prob in stim_probs:
                 # load the correct model
                 fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
                 
-                remote_file = f"{remote_base}/{fn}"
+               # remote_file = f"{remote_base}/{fn}"
                 
                 # Open remote file and read into memory
-                with sftp.file(remote_file, "rb") as f:
-                    buf = BytesIO(f.read())
-                    mod_data = np.load(buf, allow_pickle=True)
+                #with sftp.file(remote_file, "rb") as f:
+                 #   buf = BytesIO(f.read())
+                mod_data = np.load(fn, allow_pickle=True)
                 
                 # Process your data
                 print(f"Loaded {fn}, keys: {mod_data.files}")
