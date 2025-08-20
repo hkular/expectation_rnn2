@@ -9,14 +9,14 @@ Created on Tue Aug 19 17:41:02 2025
 import numpy as np
 import matplotlib.pyplot as plt    # note: importing this in all files just for debugging stuff
 from scipy.stats import sem
-import scipy.stats as stats
+#import scipy.stats as stats
 from helper_funcs import *
 from numpy import trapezoid
 import seaborn as sns
 import pandas as pd
 import statsmodels.formula.api as smf
 import pingouin as pg
-from statsmodels.stats.anova import AnovaRM
+#from statsmodels.stats.anova import AnovaRM
 #import paramiko
 #from io import BytesIO
 
@@ -75,6 +75,11 @@ cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
 fb21_scalars = [1.0,0.7,0.3,0.15,0]
 fb32_scalars = [1.0,0.7,0.3,0.15,0]
+valid_combos = [(1.0, 1.0)]  # always include both at 1.0
+# fb21 varies, fb32=1.0
+valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
+# fb32 varies, fb21=1.0
+valid_combos += [(1.0, fb32) for fb32 in fb32_scalars if fb32 != 1.0]
 
 
 results = []
@@ -94,73 +99,72 @@ for stim_prob in stim_probs:
     
     for cue_on in cue_onsets:
         
-        for fb21_scalar in fb21_scalars:
-            
-            for fb32_scalar in fb32_scalars:
+        
+        for fb21_scalar, fb32_scalar in valid_combos:
     
-                # load the correct model
-                fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-                
-               # remote_file = f"{remote_base}/{fn}"
-                
-                # Open remote file and read into memory
-                #with sftp.file(remote_file, "rb") as f:
-                 #   buf = BytesIO(f.read())
-                mod_data = np.load(fn, allow_pickle=True)
-                
-                # Process your data
-                print(f"Loaded {fn}, keys: {mod_data.files}")
-                
-            
-                # timing
-                t = np.arange(0, T, T / mod_data['stim_acc'].shape[3])
-                stim_offset_win = int(np.where(t == stim_offset)[0][0])
-                decay_win = int(np.where(t==stim_offset+decay_window)[0][0])
-                sustain_win = int(np.where(t==stim_offset+sustain_window)[0][0])
-                
-              
-                for m in range(n_models):
-                    for l in range(n_layers):
-                            
-                        if classes == 'cue':
-                            # calculate AUC
-                            area_one = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
-                            area_two = trapezoid(mod_data['stim_acc'][m, l, 1, :][stim_offset_win:], t[stim_offset_win:])
-                            
-            
-                            results.append({
-                                'stim_prob': int(100*stim_prob),
-                                'cue_on': cue_on,
-                                'cue_layer': cue_layer,
-                                'model': m,
-                                'layer': l+1,
-                                'AUC_one': area_one,
-                                'AUC_two': area_two,
-                                'delta_AUC': (area_one)-(area_two)
-                                # 'decay': slope,
-                                # 'peak': peak,
-                                # 'sustain': sustained_acc[m,l,s]
-                                
-                                })
-                        else:
-                            # calculate AUC
-                            area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
-                            area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
-                            
-            
-                            results.append({
-                                'stim_prob': int(100*stim_prob),
-                                'cue_on': cue_on,
-                                'cue_layer': cue_layer,
-                                'model': m,
-                                'layer': l+1,
-                                'fb21_scalar':fb21_scalar,
-                                'fb32_scalar':fb32_scalar,
-                                'AUC_exp': area_exp,
-                                'AUC_unexp': area_unexp,
-                                'delta_AUC': (area_exp)-(area_unexp)
-                                
-                                })
+             # load the correct model
+             fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+             
+            # remote_file = f"{remote_base}/{fn}"
+             
+             # Open remote file and read into memory
+             #with sftp.file(remote_file, "rb") as f:
+              #   buf = BytesIO(f.read())
+             mod_data = np.load(fn, allow_pickle=True)
+             
+             # Process your data
+             print(f"Loaded {fn}, keys: {mod_data.files}")
+             
+         
+             # timing
+             t = np.arange(0, T, T / mod_data['stim_acc'].shape[3])
+             stim_offset_win = int(np.where(t == stim_offset)[0][0])
+             decay_win = int(np.where(t==stim_offset+decay_window)[0][0])
+             sustain_win = int(np.where(t==stim_offset+sustain_window)[0][0])
+             
+           
+             for m in range(n_models):
+                 for l in range(n_layers):
+                         
+                     if classes == 'cue':
+                         # calculate AUC
+                         area_one = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
+                         area_two = trapezoid(mod_data['stim_acc'][m, l, 1, :][stim_offset_win:], t[stim_offset_win:])
+                         
+         
+                         results.append({
+                             'stim_prob': int(100*stim_prob),
+                             'cue_on': cue_on,
+                             'cue_layer': cue_layer,
+                             'model': m,
+                             'layer': l+1,
+                             'AUC_one': area_one,
+                             'AUC_two': area_two,
+                             'delta_AUC': (area_one)-(area_two)
+                             # 'decay': slope,
+                             # 'peak': peak,
+                             # 'sustain': sustained_acc[m,l,s]
+                             
+                             })
+                     else:
+                         # calculate AUC
+                         area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
+                         area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
+                         
+         
+                         results.append({
+                             'stim_prob': int(100*stim_prob),
+                             'cue_on': cue_on,
+                             'cue_layer': cue_layer,
+                             'model': m,
+                             'layer': l+1,
+                             'fb21_scalar':fb21_scalar,
+                             'fb32_scalar':fb32_scalar,
+                             'AUC_exp': area_exp,
+                             'AUC_unexp': area_unexp,
+                             'delta_AUC': (area_exp)-(area_unexp)
+                             
+                             })
 
 
 # Close connections
