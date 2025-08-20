@@ -15,6 +15,8 @@ import seaborn as sns
 import pandas as pd
 import statsmodels.formula.api as smf
 import pingouin as pg
+from statsmodels.stats.anova import AnovaRM
+
 
 #--------------------------
 # Basic model params
@@ -72,6 +74,9 @@ stim_probs = [1/n_afc, 0.7]
 
 
 results = []
+
+
+
 
 for stim_prob in stim_probs:
     
@@ -632,8 +637,8 @@ print(mixed.summary())
 ## 1 sample t-test stim prob > 0
 for stim in df['stim_prob'].unique():
     values = df.loc[df['stim_prob']==stim, 'delta_AUC']
-    t, p = stats.ttest_1samp(values, 0)
-    print(f"{stim}: mean={values.mean():.3f}, t={t:.2f}, p={p:.4f}")
+    t, p = stats.ttest_1samp(values, 0, alternative = 'greater')
+    print(f"{stim}: mean={values.mean():.3f}, sd={values.std():.3f}, t={t:.2f}, p={p:.4f}")
 
 
 
@@ -681,9 +686,67 @@ for layer in biased['cue_layer'].unique():
 
 
 
+## stim_prob == biased only, 2x2 rm-ANOVA
+
+cue3 = df[df['cue_layer']=="hLayer3"]
+
+# cue_on x stim_prob x layer
+
+# two-way only
+pg.rm_anova(data=cue3, dv='delta_AUC', within=['cue_on', 'stim_prob'], subject='model', correction='auto', detailed=False, effsize='ng2')
+
+print(AnovaRM(data=cue3, depvar='delta_AUC',
+              subject='model', within=['cue_on', 'stim_prob'], aggregate_func='mean').fit())
 
 
 
+
+mixed_cue3 = smf.mixedlm(
+    "delta_AUC ~ C(cue_on) * C(stim_prob) * C(layer)",
+    data=cue3,
+    groups=cue3["model"],
+    re_formula="~1"
+).fit()
+print(mixed_cue3.summary())
+
+# cue_on x cue_layer
+mixed_cue3 = smf.mixedlm(
+    "delta_AUC ~ C(cue_on) * C(stim_prob)",
+    data=cue3,
+    groups=cue3["model"],
+    re_formula="~1"
+).fit()
+print(mixed_cue3.summary())
+
+# pairewise t-tests within each layer
+cue3_biased = cue3[cue3['stim_prob']=='Biased']
+for layer in cue3_biased['layer'].unique():
+    tmp = cue3_biased[cue3_biased['layer'] == layer]
+
+    ph = pg.pairwise_tests(
+        dv="delta_AUC",
+        within="cue_on",       # comparing Start vs Stim Offset
+        subject="model",       # repeated measure = model
+        data=tmp,
+        padjust="bonf",        # adjust for multiple testing
+        effsize="cohen",
+        alternative = 'greater'
+    )
+
+    print(f"\nPost-hoc within {layer}:")
+    print(ph)   # show full output so you see all columns
+
+
+a = cue3_biased[
+    (cue3_biased['layer'] == '3') &
+    (cue3_biased['cue_on'] == 'Start')
+][['delta_AUC']]
+b  = cue3_biased[
+    (cue3_biased['layer'] == '3') &
+    (cue3_biased['cue_on'] == 'Stim Offset')
+][['delta_AUC']]
+
+stats.ttest_rel(a, b, axis=0, nan_policy='propagate', alternative='greater')
 
 
 # at the end remind me which one we were working on  
