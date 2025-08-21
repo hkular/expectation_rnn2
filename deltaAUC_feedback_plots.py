@@ -432,5 +432,5 @@ print(f'finished {settings}')
 
 fn_out = f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.npz"
 
-np.savez( fn_out,results=results, mixed_cue3=mixed_cue3, ph=ph )
+np.savez( fn_out,results=results)
 
