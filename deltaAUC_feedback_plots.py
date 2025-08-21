@@ -27,7 +27,7 @@ task_type = 'rdk_repro_cue'                         # task type (conceptually th
 n_afc = 6                                           # number of stimulus alternatives
 T = 210                                             # timesteps in each trial
 cue_on = 75                                          # 0(start) or 75(stim offset)
-cue_layer = 1                                      # which layer gets the cue
+cue_layer = 3                                      # which layer gets the cue
 stim_prob_train = 0.7
 stim_prob_eval = stim_prob_train     
 stim_amp_train = 1.0                                # can make this a list of amps and loop over... 
@@ -173,7 +173,7 @@ for stim_prob in stim_probs:
 
 # create data frame
 df = pd.DataFrame(results)
-
+df['cue_layer'] = df['cue_layer'].astype(str)
 df['layer'] = df['layer'].astype(str)
 df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
 cueon_map = {0: 'Start', 75: 'Stim Offset'}
@@ -183,59 +183,56 @@ df['cue_on'] = pd.Categorical(
     categories=['Start', 'Stim Offset'],
     ordered=True
 )
-cueL_map = { 3: 'hLayer3'} # !! right now only doing cue layer 3
-df['cue_layer'] = df['cue_layer'].map(cueL_map)
-df['cue_layer'] = pd.Categorical(
-    df['cue_layer'],
-    categories=['hLayer1', 'hLayer3'],
-    ordered=True
-)
 
-
+df['fb32_scalar'] = pd.Categorical(df['fb32_scalar'], categories=np.unique(df['fb32_scalar']), ordered=True)
+df['fb21_scalar'] = pd.Categorical(df['fb21_scalar'], categories=np.unique(df['fb21_scalar']), ordered=True)
 
 
 #--------------------------
-# plot main effect of cueon when cue layer3
+# plot  - fb21_s = 1.0 ..reducing fb32 in biased models
 #--------------------------
-df_ex = df[df['cue_layer']=='hLayer3']
+df_ex = df[(df['stim_prob']=='Biased') &
+           (df['fb21_scalar']==1.0)]
 # Set plot aesthetics
 sns.set(style="ticks", context="talk")
 # Initialize FacetGrid
 g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
 palette = sns.color_palette("viridis", 20)
-custom_subset = [palette[i] for i in [16,10,4]]
+custom_subset = [palette[i] for i in [19,16,10,5,1]]
+# Add custom error bars
+hue_order = np.unique(df['fb32_scalar'])
+x_order = sorted(df_ex['cue_on'].unique(), reverse=True)
+n_hues = len(np.unique(df['fb32_scalar']))
+bar_width = 0.8
+width_per_bar = bar_width / n_hues
 # Map barplot onto each facet
 g.map_dataframe(
     sns.barplot,
-    x="stim_prob",
+    x="cue_on",
     y="delta_AUC",
-    hue="cue_on",
+    hue="fb32_scalar",
     palette = custom_subset,
     ci=None,
     errorbar=None,
     estimator=np.mean,
-    dodge = True
+    dodge = True,order=x_order,
+    hue_order=hue_order
 )
 
-# Add custom error bars
-hue_order = ['Start', 'Stim Offset']
-x_order = sorted(df_ex['stim_prob'].unique(), reverse=True)
-n_hues = len(hue_order)
-bar_width = 0.8
-width_per_bar = bar_width / n_hues
+
 
 for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
     subset = df_ex[df_ex['layer'] == layer]
-    means = subset.groupby(['stim_prob', 'cue_on'])['delta_AUC'].mean().reset_index()
-    errors = subset.groupby(['stim_prob', 'cue_on'])['delta_AUC'].apply(sem).reset_index()
+    means = subset.groupby(['cue_on', 'fb32_scalar'])['delta_AUC'].mean().reset_index()
+    errors = subset.groupby(['cue_on', 'fb32_scalar'])['delta_AUC'].apply(sem).reset_index()
 
     for i, row in means.iterrows():
-        prob = row['stim_prob']
-        noise = row['cue_on']
+        prob = row['cue_on']
+        noise = row['fb32_scalar']
         mean = row['delta_AUC']
         err = errors.loc[
-            (errors['stim_prob'] == prob) &
-            (errors['cue_on'] == noise),
+            (errors['cue_on'] == prob) &
+            (errors['fb32_scalar'] == noise),
             'delta_AUC'
         ].values[0]
         xloc = x_order.index(prob)
@@ -247,16 +244,152 @@ for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
 #g.set(ylim=(0, 3.5))
 g.set_axis_labels("", "AUC Expected - Unexpected")
 g.set_titles("Layer {col_name}")
-g.add_legend(title='cue_on', bbox_to_anchor=(0.86, 0.5), loc='center left')
+g.add_legend(title='fb32_scalar', bbox_to_anchor=(0.86, 0.5), loc='center left')
 
 # Center shared x-axis label
 plt.subplots_adjust(bottom=0.2, left=0.12)
 #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
+#g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
+plt.show()
+
+#--------------------------
+# plot  - fb32_s = 1.0 ..reducing fb21 in biased models
+#--------------------------
+df_ex = df[(df['stim_prob']=='Biased') &
+           (df['fb32_scalar']==1.0)]
+# Set plot aesthetics
+sns.set(style="ticks", context="talk")
+# Initialize FacetGrid
+g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+palette = sns.color_palette("viridis", 20)
+custom_subset = [palette[i] for i in [19,16,10,5,1]]
+# Add custom error bars
+hue_order = np.unique(df['fb21_scalar'])
+x_order = sorted(df_ex['cue_on'].unique(), reverse=True)
+n_hues = len(np.unique(df['fb21_scalar']))
+bar_width = 0.8
+width_per_bar = bar_width / n_hues
+# Map barplot onto each facet
+g.map_dataframe(
+    sns.barplot,
+    x="cue_on",
+    y="delta_AUC",
+    hue="fb21_scalar",
+    palette = custom_subset,
+    ci=None,
+    errorbar=None,
+    estimator=np.mean,
+    dodge = True,order=x_order,
+    hue_order=hue_order
+)
+
+
+
+for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
+    subset = df_ex[df_ex['layer'] == layer]
+    means = subset.groupby(['cue_on', 'fb21_scalar'])['delta_AUC'].mean().reset_index()
+    errors = subset.groupby(['cue_on', 'fb21_scalar'])['delta_AUC'].apply(sem).reset_index()
+
+    for i, row in means.iterrows():
+        prob = row['cue_on']
+        noise = row['fb21_scalar']
+        mean = row['delta_AUC']
+        err = errors.loc[
+            (errors['cue_on'] == prob) &
+            (errors['fb21_scalar'] == noise),
+            'delta_AUC'
+        ].values[0]
+        xloc = x_order.index(prob)
+        hloc = hue_order.index(noise)
+        bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+        ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+
+# Final plot cleanup
+#g.set(ylim=(0, 3.5))
+g.set_axis_labels("", "AUC Expected - Unexpected")
+g.set_titles("Layer {col_name}")
+g.add_legend(title='fb21_scalar', bbox_to_anchor=(0.86, 0.5), loc='center left')
+
+# Center shared x-axis label
+plt.subplots_adjust(bottom=0.2, left=0.12)
+#g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
+#g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
 plt.show()
 
 
+#--------------------------
+# plot  - heatmap: interaction between fb21 and fb32
+#--------------------------
 
+df_ex = df[df['stim_prob'] == "Biased"]
+df_ex["fb21_scalar"] = pd.to_numeric(df_ex["fb21_scalar"], errors="coerce")
+df_ex["fb32_scalar"] = pd.to_numeric(df_ex["fb32_scalar"], errors="coerce")
+df_ex["delta_AUC"]  = pd.to_numeric(df_ex["delta_AUC"], errors="coerce")
+
+# set up facet grid
+g = sns.FacetGrid(df_ex, row="layer", col="cue_on", margin_titles=True)
+
+def facet_heatmap(data, color, **kws):
+    # pivot within each facet's subset
+    pivoted = data.pivot_table(
+        index="fb32_scalar",
+        columns="fb21_scalar",
+        values="delta_AUC",
+        aggfunc="mean"
+    )
+    sns.heatmap(
+        pivoted,
+        annot=True,
+        cmap="magma",
+        cbar=False,   # remove duplicate colorbars
+        **kws
+    )
+
+# map each facet
+g.map_dataframe(facet_heatmap)
+
+# add a single colorbar
+# (get first heatmap's mappable)
+for ax in g.axes.flat:
+    im = ax.collections[0]
+    break
+g.fig.colorbar(im, ax=g.axes, orientation="vertical", shrink=0.6)
+
+plt.show()
+
+
+#--------------------------
+# plot  - grouped bar plots
+#--------------------------
+
+# make sure scalars are numeric
+df_ex["fb21_scalar"] = pd.to_numeric(df_ex["fb21_scalar"], errors="coerce")
+df_ex["fb32_scalar"] = pd.to_numeric(df_ex["fb32_scalar"], errors="coerce")
+df_ex["delta_AUC"]   = pd.to_numeric(df_ex["delta_AUC"], errors="coerce")
+
+# convert scalars to categorical with sorted order (so barplots look clean)
+df_ex["fb21_scalar"] = pd.Categorical(df_ex["fb21_scalar"], ordered=True, categories=sorted(df_ex["fb21_scalar"].unique()))
+df_ex["fb32_scalar"] = pd.Categorical(df_ex["fb32_scalar"], ordered=True, categories=sorted(df_ex["fb32_scalar"].unique()))
+
+# grouped barplot
+g = sns.catplot(
+    data=df_ex,
+    x="fb21_scalar",
+    y="delta_AUC",
+    hue="fb32_scalar",
+    col="cue_on",
+    row="layer",
+    kind="bar",
+    margin_titles=True,
+    height=4,
+    aspect=1.2
+)
+
+g.set_axis_labels("fb21_scalar", "Δ AUC")
+g.set_titles(row_template="{row_name}", col_template="{col_name}")
+g.add_legend(title="fb32_scalar")
+
+plt.show()
 #--------------------------
 # stats
 #--------------------------
@@ -266,47 +399,30 @@ df['cue_on'] = df['cue_on'].astype('category')
 df['cue_layer'] = df['cue_layer'].astype('category')
 df['layer'] = df['layer'].astype('category')
 df['model'] = df['model'].astype('category')
+df['fb21_scalar'] = df['fb21_scalar'].astype(float).astype('category')
+df['fb32_scalar'] = df['fb32_scalar'].astype(float).astype('category')
+df['delta_AUC'] = pd.to_numeric(df['delta_AUC'], errors='coerce')
 
-
-
-cue3 = df[df['cue_layer']=="hLayer3"]
+fb32_fx = df[df['fb21_scalar']==1.0]
 
 # cue_on x stim_prob x layer
 
-mixed_cue3 = smf.mixedlm(
-    "delta_AUC ~ C(cue_on) * C(stim_prob) * C(layer)",
-    data=cue3,
-    groups=cue3["model"],
+mixed = smf.mixedlm(
+    "delta_AUC ~ C(cue_on) * C(stim_prob) * C(layer) * C(fb32_scalar)",
+    data=fb32_fx,
+    groups=fb32_fx["model"],
     re_formula="~1"
 ).fit()
-print(mixed_cue3.summary())
+print(mixed.summary())
 
 # cue_on x stim_prob
 mixed_cue3 = smf.mixedlm(
-    "delta_AUC ~ C(cue_on) * C(stim_prob)",
+    "delta_AUC ~ C(fb21_scalar) * C(fb32_scalar)",
     data=cue3,
     groups=cue3["model"],
     re_formula="~1"
 ).fit()
 print(mixed_cue3.summary())
-
-# pairewise t-tests within each layer
-cue3_biased = cue3[cue3['stim_prob']=='Biased']
-for layer in cue3_biased['layer'].unique():
-    tmp = cue3_biased[cue3_biased['layer'] == layer]
-
-    ph = pg.pairwise_tests(
-        dv="delta_AUC",
-        within="cue_on",       # comparing Start vs Stim Offset
-        subject="model",       # repeated measure = model
-        data=tmp,
-        padjust="bonf",        # adjust for multiple testing
-        effsize="cohen",
-        alternative = 'greater'
-    )
-
-    print(f"\nPost-hoc within {layer}:")
-    print(ph)   # show full output so you see all columns
 
 
 # at the end remind me which one we were working on  
@@ -315,5 +431,5 @@ print(f'finished {settings}')
 
 fn_out = f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.npz"
 
-np.savez( fn_out,df=df, mixed_cue3=mixed_cue3, ph=ph )
+np.savez( fn_out,results=results, mixed_cue3=mixed_cue3, ph=ph )
 
