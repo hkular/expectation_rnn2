@@ -43,7 +43,7 @@ fb32_scalar = 1.0
 
 
 # Varying args
-time_or_xgen_vals = [0, 1]
+time_or_xgen_vals = [0]
 cue_on_vals = [0, 75]
 #cue_layer_vals = [3]
 cue_layer = 3
@@ -57,11 +57,11 @@ for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.produ
 ):
     # fn out for npz file to store decoding data
     if time_or_xgen == 0:
-        fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+        fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{stim_prob}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
     else:
-        fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+        fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{stim_prob}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
     
-    if os.exists(fn_out):
+    if os.path.exists(fn_out):
         print(f"{fn_out} exists, skipping to next combo")
     else:
     
@@ -78,3 +78,6 @@ for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.produ
     
         print(f"Running: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
+        
+        
+        
