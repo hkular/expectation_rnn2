@@ -19,6 +19,7 @@ import pingouin as pg
 #from statsmodels.stats.anova import AnovaRM
 #import paramiko
 #from io import BytesIO
+from itertools import product
 
 #--------------------------
 # Basic model params
@@ -73,14 +74,14 @@ sustained_acc = np.zeros((n_models, n_layers, n_stim_types))
 cue_onsets = [0, 75]
 cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
-fb21_scalars = [1.0,0.99,0.95,0.85,0.7,0.3,0.15,0.0]
-fb32_scalars = [1.0,0.99,0.95,0.85,0.7,0.3,0.15,0.0]
-valid_combos = [(1.0, 1.0)]  # always include both at 1.0
-# fb21 varies, fb32=1.0
-valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
-# fb32 varies, fb21=1.0
-valid_combos += [(1.0, fb32) for fb32 in fb32_scalars if fb32 != 1.0]
-
+fb21_scalars = [1.0,0.85,0.7,0.3]
+fb32_scalars = [1.0,0.85,0.7,0.3]
+# valid_combos = [(1.0, 1.0)]  # always include both at 1.0
+# # fb21 varies, fb32=1.0
+# valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
+# # fb32 varies, fb21=1.0
+# valid_combos += [(1.0, fb32) for fb32 in fb32_scalars if fb32 != 1.0]
+valid_combos = list(product(fb21_scalars, fb32_scalars))
 
 results = []
 
@@ -172,23 +173,31 @@ for stim_prob in stim_probs:
 #sftp.close()
 #ssh.close()
 
-# create data frame
-df = pd.DataFrame(results)
-df['cue_layer'] = df['cue_layer'].astype(str)
-df['layer'] = df['layer'].astype(str)
-df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
-cueon_map = {0: 'Start', 75: 'Stim Offset'}
-df['cue_on'] = df['cue_on'].map(cueon_map)
-df['cue_on'] = pd.Categorical(
-    df['cue_on'],
-    categories=['Start', 'Stim Offset'],
-    ordered=True
-)
-
-df['fb32_scalar'] = pd.Categorical(df['fb32_scalar'], categories=np.unique(df['fb32_scalar']), ordered=True)
-df['fb21_scalar'] = pd.Categorical(df['fb21_scalar'], categories=np.unique(df['fb21_scalar']), ordered=True)
 
 if plots:
+    
+    
+    # load npz saved on fishee transferred to nc6
+    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer3_feedback.npz', allow_pickle = True)
+    results = data['results']
+    results_list = [item for item in results]  # Convert back to list
+    df = pd.DataFrame(results_list)
+    #df = pd.DataFrame(data['results'])
+    df['cue_layer'] = df['cue_layer'].astype(str)
+    df['layer'] = df['layer'].astype(str)
+    df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
+    cueon_map = {0: 'Start', 75: 'Stim Offset'}
+    df['cue_on'] = df['cue_on'].map(cueon_map)
+    df['cue_on'] = pd.Categorical(
+        df['cue_on'],
+        categories=['Start', 'Stim Offset'],
+        ordered=True
+    )
+
+    #df['fb32_scalar'] = pd.Categorical(df['fb32_scalar'], categories=np.unique(df['fb32_scalar']), ordered=True)
+    #df['fb21_scalar'] = pd.Categorical(df['fb21_scalar'], categories=np.unique(df['fb21_scalar']), ordered=True)
+
+    
     #--------------------------
     # plot  - fb21_s = 1.0 ..reducing fb32 in biased models
     #--------------------------
@@ -198,13 +207,13 @@ if plots:
     sns.set(style="ticks", context="talk")
     # Initialize FacetGrid
     g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("viridis", 20)
-    custom_subset = [palette[i] for i in [19,16,10,5,1]]
     # Add custom error bars
-    hue_order = np.unique(df['fb32_scalar'])
-    x_order = sorted(df_ex['cue_on'].unique(), reverse=True)
-    n_hues = len(np.unique(df['fb32_scalar']))
+    hue_order = list(np.unique(df_ex['fb32_scalar']))
+    x_order = list(sorted(df_ex['cue_on'].unique(), reverse=True))
+    n_hues = len(np.unique(df_ex['fb32_scalar']))
     bar_width = 0.8
+    discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
+
     width_per_bar = bar_width / n_hues
     # Map barplot onto each facet
     g.map_dataframe(
@@ -212,16 +221,14 @@ if plots:
         x="cue_on",
         y="delta_AUC",
         hue="fb32_scalar",
-        palette = custom_subset,
+        palette = discrete_palette,
         ci=None,
         errorbar=None,
         estimator=np.mean,
         dodge = True,order=x_order,
         hue_order=hue_order
     )
-    
-    
-    
+       
     for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
         subset = df_ex[df_ex['layer'] == layer]
         means = subset.groupby(['cue_on', 'fb32_scalar'])['delta_AUC'].mean().reset_index()
@@ -262,11 +269,10 @@ if plots:
     sns.set(style="ticks", context="talk")
     # Initialize FacetGrid
     g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("viridis", 20)
-    custom_subset = [palette[i] for i in [19,16,10,5,1]]
+    discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
     # Add custom error bars
-    hue_order = np.unique(df['fb21_scalar'])
-    x_order = sorted(df_ex['cue_on'].unique(), reverse=True)
+    hue_order = list(np.unique(df['fb21_scalar']))
+    x_order = list(sorted(df_ex['cue_on'].unique(), reverse=True))
     n_hues = len(np.unique(df['fb21_scalar']))
     bar_width = 0.8
     width_per_bar = bar_width / n_hues
@@ -276,16 +282,14 @@ if plots:
         x="cue_on",
         y="delta_AUC",
         hue="fb21_scalar",
-        palette = custom_subset,
+        palette = discrete_palette,
         ci=None,
         errorbar=None,
         estimator=np.mean,
         dodge = True,order=x_order,
         hue_order=hue_order
     )
-    
-    
-    
+       
     for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
         subset = df_ex[df_ex['layer'] == layer]
         means = subset.groupby(['cue_on', 'fb21_scalar'])['delta_AUC'].mean().reset_index()
