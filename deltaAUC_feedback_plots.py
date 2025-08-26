@@ -166,7 +166,8 @@ for stim_prob in stim_probs:
                              'fb32_scalar':fb32_scalar,
                              'AUC_exp': area_exp,
                              'AUC_unexp': area_unexp,
-                             'delta_AUC': (area_exp)-(area_unexp)
+                             'delta_AUC': (area_exp)-(area_unexp),
+                             'eval_acc': np.mean(mod_data['tbt_acc'])
                              
                              })
 
