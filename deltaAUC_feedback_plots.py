@@ -20,6 +20,8 @@ import pingouin as pg
 #import paramiko
 #from io import BytesIO
 from itertools import product
+import statsmodels.api as sm
+from statsmodels.stats.anova import anova_lm
 
 #--------------------------
 # Basic model params
@@ -164,7 +166,8 @@ for stim_prob in stim_probs:
                              'fb32_scalar':fb32_scalar,
                              'AUC_exp': area_exp,
                              'AUC_unexp': area_unexp,
-                             'delta_AUC': (area_exp)-(area_unexp)
+                             'delta_AUC': (area_exp)-(area_unexp),
+                             'eval_acc': np.mean(mod_data['tbt_acc'])
                              
                              })
 
@@ -260,6 +263,19 @@ if plots:
     #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
     plt.show()
     
+    # stats
+    df_ex.loc[:,"fb32_scalar"] = pd.Categorical(df_ex["fb32_scalar"], 
+                                          categories=[1.0, 0.85, 0.7, 0.3], 
+                                          ordered=True)
+    mixed = smf.mixedlm(
+        "delta_AUC ~ C(cue_on) + C(layer) + C(fb32_scalar)",
+        data=df_ex,
+        groups=df_ex["model"],
+        re_formula="~1"
+    ).fit()
+    print(mixed.summary())
+    
+    
     #--------------------------
     # plot  - fb32_s = 1.0 ..reducing fb21 in biased models
     #--------------------------
@@ -321,6 +337,17 @@ if plots:
     #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
     plt.show()
     
+    # stats
+    df_ex.loc[:,"fb21_scalar"] = pd.Categorical(df_ex["fb21_scalar"], 
+                                          categories=[1.0, 0.85, 0.7, 0.3], 
+                                          ordered=True)
+    mixed = smf.mixedlm(
+        "delta_AUC ~ C(cue_on) + C(layer) + C(fb21_scalar)",
+        data=df_ex,
+        groups=df_ex["model"],
+        re_formula="~1"
+    ).fit()
+    print(mixed.summary())
     
     #--------------------------
     # plot  - heatmap: interaction between fb21 and fb32
@@ -358,8 +385,9 @@ if plots:
     for ax in g.axes.flat:
         im = ax.collections[0]
         break
-    g.fig.colorbar(im, ax=g.axes, orientation="vertical", shrink=0.6)
-    
+    #g.fig.colorbar(im, ax=g.axes, orientation="vertical", pad = 0.02,shrink=0.6, fraction = .05)
+    g.fig.subplots_adjust(top=0.9, bottom=0.1, left=0.1, right=0.9, hspace=0.3, wspace=0.3)
+
     plt.show()
     
     
@@ -385,6 +413,7 @@ if plots:
         col="cue_on",
         row="layer",
         kind="bar",
+        palette = discrete_palette,
         margin_titles=True,
         height=4,
         aspect=1.2
@@ -404,30 +433,73 @@ if plots:
     df['cue_layer'] = df['cue_layer'].astype('category')
     df['layer'] = df['layer'].astype('category')
     df['model'] = df['model'].astype('category')
-    df['fb21_scalar'] = df['fb21_scalar'].astype(float).astype('category')
-    df['fb32_scalar'] = df['fb32_scalar'].astype(float).astype('category')
+    # df['fb21_scalar'] = df['fb21_scalar'].astype(float).astype('category')
+    # df['fb32_scalar'] = df['fb32_scalar'].astype(float).astype('category')
     df['delta_AUC'] = pd.to_numeric(df['delta_AUC'], errors='coerce')
     
-    fb32_fx = df[df['fb21_scalar']==1.0]
-    
-    # cue_on x stim_prob x layer
+    df_fx = df[df['stim_prob']=='Biased']
+    df_fx.loc[:,"fb21_scalar"] = pd.Categorical(df_fx["fb21_scalar"], 
+                                      categories=[1.0, 0.85, 0.7, 0.3], 
+                                      ordered=True)
+    df_fx.loc[:,"fb32_scalar"] = pd.Categorical(df_fx["fb32_scalar"], 
+                                          categories=[1.0, 0.85, 0.7, 0.3], 
+                                          ordered=True)
+
+    # cue_on x stim_prob x layer x fb scalars
     
     mixed = smf.mixedlm(
-        "delta_AUC ~ C(cue_on) * C(stim_prob) * C(layer) * C(fb32_scalar)",
-        data=fb32_fx,
-        groups=fb32_fx["model"],
+        "delta_AUC ~ C(cue_on) + C(layer) + C(fb32_scalar) * C(fb21_scalar)",
+        data=df_fx,
+        groups=df_fx["model"],
         re_formula="~1"
     ).fit()
     print(mixed.summary())
     
-    # cue_on x stim_prob
-    mixed_cue3 = smf.mixedlm(
-        "delta_AUC ~ C(fb21_scalar) * C(fb32_scalar)",
-        data=cue3,
-        groups=cue3["model"],
-        re_formula="~1"
-    ).fit()
-    print(mixed_cue3.summary())
+   # # omnibus interaction
+   #  model = smf.ols("delta_AUC ~ C(fb21_scalar) * C(fb32_scalar)", data=df).fit()
+   #  print(anova_lm(model, typ=2))  # or typ=3
+    
+    # likelihood ratio
+    # Likelihood ratio tests
+    def lrtest(m1, m0, name):
+        lr = 2 * (m1.llf - m0.llf)
+        df_diff = m1.df_modelwc - m0.df_modelwc
+        pval = stats.chi2.sf(lr, df=df_diff)       
+        print(f"{name}: LR={lr:.2f}, df={df_diff}, p={pval:.4g}")
+        
+    # Full model: main effects + interaction
+    full = smf.mixedlm(
+        "delta_AUC ~ C(fb21_scalar) * C(fb32_scalar) + C(cue_on) + C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+    # Model without interaction (just main effects)
+    no_interaction = smf.mixedlm(
+        "delta_AUC ~ C(fb21_scalar) + C(fb32_scalar) + C(cue_on) +C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+    # Model without fb32_scalar
+    no_fb32 = smf.mixedlm(
+        "delta_AUC ~ C(fb21_scalar)+ C(cue_on) +C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+    # Model without fb21_scalar
+    no_fb21 = smf.mixedlm(
+        "delta_AUC ~ C(fb32_scalar)+ C(cue_on) +C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+
+    
+    lrtest(full, no_interaction, "Interaction fb21*fb32")
+    lrtest(no_interaction, no_fb32, "Main effect fb32")
+    lrtest(no_interaction, no_fb21, "Main effect fb21")
 
 
 # at the end remind me which one we were working on  
