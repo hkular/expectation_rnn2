@@ -36,6 +36,7 @@ stim_noise_train = 0.1
 stim_noise_eval = stim_noise_train
 int_noise_train = 0.1
 int_noise_eval = 0.1
+stim_prob_eval = 1/n_afc
 T = 210
 num_cues = 2
 fb32_scalar = 1.0
@@ -47,9 +48,9 @@ time_or_xgen_vals = [0]
 cue_on_vals = [0, 75]
 #cue_layer_vals = [3]
 cue_layer = 3
-stim_prob_vals = [16, 70]  # stim_prob_eval will match
-fb21_scalar_vals = [1.0]
-fb32_scalar_vals= [1.0]
+stim_prob_vals = [70]  # stim_prob_eval will match
+fb21_scalar_vals = [1.0, 0.7, 0.3]
+fb32_scalar_vals= [1.0, 0.7, 0.3]
 
 # Loop over all combinations
 for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.product(
@@ -57,9 +58,9 @@ for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.produ
 ):
     # fn out for npz file to store decoding data
     if time_or_xgen == 0:
-        fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{stim_prob}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+        fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{stim_prob}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
     else:
-        fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{stim_prob}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+        fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{stim_prob}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
     
     if os.path.exists(fn_out):
         print(f"{fn_out} exists, skipping to next combo")
@@ -71,7 +72,7 @@ for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.produ
             "--time_or_xgen", str(time_or_xgen),
             "--cue_on", str(cue_on),
             "--stim_prob_train", str(stim_prob),
-            "--stim_prob_eval", str(stim_prob),
+            "--stim_prob_eval", str(int(stim_prob_eval*100)),
             "--fb21_scalar", str(fb21_scalar),
             "--fb32_scalar", str(fb32_scalar)
         ]
