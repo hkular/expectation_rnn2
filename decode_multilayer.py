@@ -113,7 +113,7 @@ if args.stim_prob_train > 1/n_afc:
 else:
     stim_prob_train = 1/n_afc
 if args.stim_prob_eval > 1/n_afc:
-    stim_prob_eval = args.stim_prob_train /100     # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+    stim_prob_eval = args.stim_prob_eval /100     # probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
 else:
     stim_prob_eval = 1/n_afc        
 stim_amp_train = args.stim_amp_train                # can make this a list of amps and loop over... 
