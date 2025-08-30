@@ -170,7 +170,7 @@ for stim_prob in stim_probs:
                              'AUC_exp': area_exp,
                              'AUC_unexp': area_unexp,
                              'delta_AUC': (area_exp)-(area_unexp),
-                             'eval_acc': np.mean(mod_data['tbt_acc'])
+                             'eval_acc': np.mean(mod_data['stim_acc'])
                              
                              })
 
@@ -504,6 +504,12 @@ if plots:
     lrtest(full, no_interaction, "Interaction fb21*fb32")
     lrtest(no_interaction, no_fb32, "Main effect fb32")
     lrtest(no_interaction, no_fb21, "Main effect fb21")
+
+
+
+##### EVAL ACC
+
+
 
 
 # at the end remind me which one we were working on  
