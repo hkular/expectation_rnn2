@@ -161,7 +161,25 @@ for stim_prob in stim_probs:
 
 
 if plots: 
-    df = pd.DataFrame(results)
+    #df = pd.DataFrame(results)
+    
+    
+    # load npz saved on fishee transferred to nc6
+    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer1-3.npz', allow_pickle = True)
+    results = data['results']
+    results_list = [item for item in results]  # Convert back to list
+    df = pd.DataFrame(results_list)
+    #df = pd.DataFrame(data['results'])
+    df['cue_layer'] = df['cue_layer'].astype(str)
+    df['layer'] = df['layer'].astype(str)
+    df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
+    cueon_map = {0: 'Start', 75: 'Stim Offset'}
+    df['cue_on'] = df['cue_on'].map(cueon_map)
+    df['cue_on'] = pd.Categorical(
+        df['cue_on'],
+        categories=['Start', 'Stim Offset'],
+        ordered=True
+    )
     
     
     # plot
@@ -440,13 +458,13 @@ if plots:
     #--------------------------
     # plot main effect of cueon when cue layer3
     #--------------------------
-    df_ex = df[df['cue_layer']=='hLayer3']
+    df_ex = df#[df['cue_layer']=='hLayer3']
     # Set plot aesthetics
     sns.set(style="ticks", context="talk")
     # Initialize FacetGrid
     g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
     palette = sns.color_palette("viridis", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
+    custom_subset = [palette[i] for i in [16,10]]
     # Map barplot onto each facet
     g.map_dataframe(
         sns.barplot,
@@ -454,7 +472,6 @@ if plots:
         y="delta_AUC",
         hue="cue_on",
         palette = custom_subset,
-        ci=None,
         errorbar=None,
         estimator=np.mean,
         dodge = True
@@ -693,7 +710,7 @@ if plots:
     
     ## stim_prob == biased only, 2x2 rm-ANOVA
     
-    cue3 = df[df['cue_layer']=="hLayer3"]
+    cue3 = df#[df['cue_layer']=="hLayer3"]
     
     # cue_on x stim_prob x layer
     
@@ -723,7 +740,7 @@ if plots:
     ).fit()
     print(mixed_cue3.summary())
     
-    # pairewise t-tests within each layer
+    # pairwise t-tests within each layer
     cue3_biased = cue3[cue3['stim_prob']=='Biased']
     for layer in cue3_biased['layer'].unique():
         tmp = cue3_biased[cue3_biased['layer'] == layer]

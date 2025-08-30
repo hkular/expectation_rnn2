@@ -32,7 +32,7 @@ T = 210                                             # timesteps in each trial
 cue_on = 75                                          # 0(start) or 75(stim offset)
 cue_layer = 3                                      # which layer gets the cue
 stim_prob_train = 0.7
-stim_prob_eval = stim_prob_train     
+stim_prob_eval = 1/n_afc     
 stim_amp_train = 1.0                                # can make this a list of amps and loop over... 
 stim_amp_eval = 1.0
 stim_noise_train = 0.1                              # magnitude of randn background noise in the stim channel
@@ -262,8 +262,8 @@ if plots:
     
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
-    #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
+    g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
+    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -336,8 +336,8 @@ if plots:
     
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
-    #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.png", format="png", bbox_inches="tight")
+    g.fig.text(0.5, 0.05, 'Reducing feedback from layer 2 to 1 only', ha='center', fontsize=14)
+    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback21.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -352,6 +352,7 @@ if plots:
     ).fit()
     print(mixed.summary())
     
+
     #--------------------------
     # plot  - heatmap: interaction between fb21 and fb32
     #--------------------------
