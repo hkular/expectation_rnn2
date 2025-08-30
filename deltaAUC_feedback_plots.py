@@ -170,7 +170,7 @@ for stim_prob in stim_probs:
                              'AUC_exp': area_exp,
                              'AUC_unexp': area_unexp,
                              'delta_AUC': (area_exp)-(area_unexp),
-                             'eval_acc': np.mean(mod_data['stim_acc'])
+                             'eval_acc': np.mean(mod_data['tbt_acc'])
                              
                              })
 
