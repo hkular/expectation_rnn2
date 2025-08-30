@@ -76,8 +76,8 @@ sustained_acc = np.zeros((n_models, n_layers, n_stim_types))
 cue_onsets = [0, 75]
 cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
-fb21_scalars = [1.0,0.85,0.7,0.3]
-fb32_scalars = [1.0,0.85,0.7,0.3]
+fb21_scalars = [1.0,0.7,0.3]
+fb32_scalars = [1.0,0.7,0.3]
 # valid_combos = [(1.0, 1.0)]  # always include both at 1.0
 # # fb21 varies, fb32=1.0
 # valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
