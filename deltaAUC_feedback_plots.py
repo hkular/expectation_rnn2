@@ -9,7 +9,7 @@ Created on Tue Aug 19 17:41:02 2025
 import numpy as np
 import matplotlib.pyplot as plt    # note: importing this in all files just for debugging stuff
 from scipy.stats import sem
-#import scipy.stats as stats
+import scipy.stats as stats
 from helper_funcs import *
 from numpy import trapezoid
 import seaborn as sns
@@ -76,8 +76,8 @@ sustained_acc = np.zeros((n_models, n_layers, n_stim_types))
 cue_onsets = [0, 75]
 cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
-fb21_scalars = [1.0,0.85,0.7,0.3]
-fb32_scalars = [1.0,0.85,0.7,0.3]
+fb21_scalars = [1.0,0.7,0.3]
+fb32_scalars = [1.0,0.7,0.3]
 # valid_combos = [(1.0, 1.0)]  # always include both at 1.0
 # # fb21 varies, fb32=1.0
 # valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
@@ -268,7 +268,7 @@ if plots:
     
     # stats
     df_ex.loc[:,"fb32_scalar"] = pd.Categorical(df_ex["fb32_scalar"], 
-                                          categories=[1.0, 0.85, 0.7, 0.3], 
+                                          categories=[1.0, 0.7, 0.3], 
                                           ordered=True)
     mixed = smf.mixedlm(
         "delta_AUC ~ C(cue_on) + C(layer) + C(fb32_scalar)",
@@ -342,7 +342,7 @@ if plots:
     
     # stats
     df_ex.loc[:,"fb21_scalar"] = pd.Categorical(df_ex["fb21_scalar"], 
-                                          categories=[1.0, 0.85, 0.7, 0.3], 
+                                          categories=[1.0, 0.7, 0.3], 
                                           ordered=True)
     mixed = smf.mixedlm(
         "delta_AUC ~ C(cue_on) + C(layer) + C(fb21_scalar)",
@@ -442,10 +442,10 @@ if plots:
     
     df_fx = df[df['stim_prob']=='Biased']
     df_fx.loc[:,"fb21_scalar"] = pd.Categorical(df_fx["fb21_scalar"], 
-                                      categories=[1.0, 0.85, 0.7, 0.3], 
+                                      categories=[1.0,  0.7, 0.3], 
                                       ordered=True)
     df_fx.loc[:,"fb32_scalar"] = pd.Categorical(df_fx["fb32_scalar"], 
-                                          categories=[1.0, 0.85, 0.7, 0.3], 
+                                          categories=[1.0, 0.7, 0.3], 
                                           ordered=True)
 
     # cue_on x stim_prob x layer x fb scalars
