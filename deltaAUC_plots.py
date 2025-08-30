@@ -69,7 +69,7 @@ sustained_acc = np.zeros((n_models, n_layers, n_stim_types))
 # Which conditions to compare
 #--------------------------
 cue_onsets = [0, 75]
-cue_layers = [1, 3]
+cue_layers = [3]
 stim_probs = [1/n_afc, 0.7]
 fb21_scalar = 1.0
 fb32_scalar = 1.0
