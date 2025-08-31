@@ -306,7 +306,7 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
 # save out the data across models
 np.savez( fn_out,n_tmpts=T,m_acc=m_acc,
          over_acc=over_acc,stim_acc=stim_acc,stim_label=s_label_int,outputs=outputs,
-         cues=cues.cpu().detach(),h1=h1,h2=h2,h3=h3,tbt_acc=tbt_acc,
+         cues=cues.cpu().detach(),h1=h1,h2=h2,h3=h3,
          params_dict=params_dict )
  
 if plots:
