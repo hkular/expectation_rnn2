@@ -48,7 +48,7 @@ time_or_xgen_vals = [0]
 cue_on_vals = [0, 75]
 #cue_layer_vals = [3]
 cue_layer = 3
-stim_prob_vals = [70]  # stim_prob_eval will match
+stim_prob_vals = [16,70]  
 fb21_scalar_vals = [1.0, 0.7, 0.3]
 fb32_scalar_vals= [1.0, 0.7, 0.3]
 

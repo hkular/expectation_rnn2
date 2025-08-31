@@ -170,7 +170,7 @@ for stim_prob in stim_probs:
                              'AUC_exp': area_exp,
                              'AUC_unexp': area_unexp,
                              'delta_AUC': (area_exp)-(area_unexp),
-                             'eval_acc': np.mean(mod_data['tbt_acc'])
+                             'eval_acc': np.mean(mod_data['tbt_acc'][m,:])
                              
                              })
 
@@ -203,7 +203,9 @@ if plots:
     #df['fb32_scalar'] = pd.Categorical(df['fb32_scalar'], categories=np.unique(df['fb32_scalar']), ordered=True)
     #df['fb21_scalar'] = pd.Categorical(df['fb21_scalar'], categories=np.unique(df['fb21_scalar']), ordered=True)
 
-    
+    df[(df['stim_prob']=='Biased') & (df['fb21_scalar']==1.0) & (df['fb32_scalar']==1.0) &(df['cue_on']=='Start') 
+       & (df['layer']=='1') 
+          & (df['cue_layer']=='3')]['eval_acc'].shape   
     #--------------------------
     # plot  - fb21_s = 1.0 ..reducing fb32 in biased models
     #--------------------------
