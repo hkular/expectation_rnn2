@@ -151,8 +151,8 @@ for stim_prob in stim_probs:
                             'AUC_unexp': area_unexp,
                             'delta_AUC': (area_exp)-(area_unexp),
                             'eval_acc': mod_data['m_acc'][m],
-                            'stim_label': mod_data['stim_label'][m,:],
-                            'outputs': mod_data['outputs'][m,:]
+#                            'stim_label': mod_data['stim_label'][m,:],
+#                            'outputs': mod_data['outputs'][m,:]
                             })
 
 # Close connections
@@ -180,14 +180,87 @@ if plots:
         ordered=True
     )
 
-    #df['fb32_scalar'] = pd.Categorical(df['fb32_scalar'], categories=np.unique(df['fb32_scalar']), ordered=True)
-    #df['fb21_scalar'] = pd.Categorical(df['fb21_scalar'], categories=np.unique(df['fb21_scalar']), ordered=True)
-
     df[(df['stim_prob']=='Biased') & (df['fb21_scalar']==1.0) & (df['fb32_scalar']==1.0) &(df['cue_on']=='Start') 
        & (df['layer']=='1') 
           & (df['cue_layer']=='3')]['eval_acc'].shape   
+    
+        
     #--------------------------
-    # plot  - fb21_s = 1.0 ..reducing fb32 in biased models
+    # plot eval acc - fb21_s = 1.0 ..reducing fb32 in biased models
+    #--------------------------
+    df_ex = df[(df['stim_prob']=='Biased') &
+               (df['fb21_scalar']==1.0)]
+    # Set plot aesthetics
+    sns.set(style="ticks", context="talk")
+    # Initialize FacetGrid
+    g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    # Add custom error bars
+    hue_order = list(np.unique(df_ex['fb32_scalar']))
+    x_order = list(sorted(df_ex['cue_on'].unique(), reverse=True))
+    n_hues = len(np.unique(df_ex['fb32_scalar']))
+    bar_width = 0.8
+    discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
+
+    width_per_bar = bar_width / n_hues
+    # Map barplot onto each facet
+    g.map_dataframe(
+        sns.barplot,
+        x="cue_on",
+        y="eval_acc",
+        hue="fb32_scalar",
+        palette = discrete_palette,
+        ci=None,
+        errorbar=None,
+        estimator=np.mean,
+        dodge = True,order=x_order,
+        hue_order=hue_order
+    )
+       
+    for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
+        subset = df_ex[df_ex['layer'] == layer]
+        means = subset.groupby(['cue_on', 'fb32_scalar'])['eval_acc'].mean().reset_index()
+        errors = subset.groupby(['cue_on', 'fb32_scalar'])['eval_acc'].apply(sem).reset_index()
+    
+        for i, row in means.iterrows():
+            prob = row['cue_on']
+            noise = row['fb32_scalar']
+            mean = row['eval_acc']
+            err = errors.loc[
+                (errors['cue_on'] == prob) &
+                (errors['fb32_scalar'] == noise),
+                'eval_acc'
+            ].values[0]
+            xloc = x_order.index(prob)
+            hloc = hue_order.index(noise)
+            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    
+    # Final plot cleanup
+    #g.set(ylim=(0, 3.5))
+    g.set_axis_labels("", "Eval Accuracy")
+    g.set_titles("Layer {col_name}")
+    g.add_legend(title='fb32_scalar', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    
+    # Center shared x-axis label
+    plt.subplots_adjust(bottom=0.2, left=0.12)
+    g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
+    g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
+    plt.show()
+    
+    # stats
+    df_ex.loc[:,"fb32_scalar"] = pd.Categorical(df_ex["fb32_scalar"], 
+                                          categories=[1.0, 0.7, 0.3], 
+                                          ordered=True)
+    mixed = smf.mixedlm(
+        "eval_acc ~ C(cue_on) + C(layer) + C(fb32_scalar)",
+        data=df_ex,
+        groups=df_ex["model"],
+        re_formula="~1"
+    ).fit()
+    print(mixed.summary())
+    
+    #--------------------------
+    # plot AUC  - fb21_s = 1.0 ..reducing fb32 in biased models
     #--------------------------
     df_ex = df[(df['stim_prob']=='Biased') &
                (df['fb21_scalar']==1.0)]
@@ -245,7 +318,7 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
-    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
+    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -262,7 +335,81 @@ if plots:
     
     
     #--------------------------
-    # plot  - fb32_s = 1.0 ..reducing fb21 in biased models
+    # plot eval acc - fb32_s = 1.0 ..reducing fb21 in biased models
+    #--------------------------
+    df_ex = df[(df['stim_prob']=='Biased') &
+               (df['fb32_scalar']==1.0)]
+    # Set plot aesthetics
+    sns.set(style="ticks", context="talk")
+    # Initialize FacetGrid
+    g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
+    # Add custom error bars
+    hue_order = list(np.unique(df['fb21_scalar']))
+    x_order = list(sorted(df_ex['cue_on'].unique(), reverse=True))
+    n_hues = len(np.unique(df['fb21_scalar']))
+    bar_width = 0.8
+    width_per_bar = bar_width / n_hues
+    # Map barplot onto each facet
+    g.map_dataframe(
+        sns.barplot,
+        x="cue_on",
+        y="eval_acc",
+        hue="fb21_scalar",
+        palette = discrete_palette,
+        ci=None,
+        errorbar=None,
+        estimator=np.mean,
+        dodge = True,order=x_order,
+        hue_order=hue_order
+    )
+       
+    for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
+        subset = df_ex[df_ex['layer'] == layer]
+        means = subset.groupby(['cue_on', 'fb21_scalar'])['eval_acc'].mean().reset_index()
+        errors = subset.groupby(['cue_on', 'fb21_scalar'])['eval_acc'].apply(sem).reset_index()
+    
+        for i, row in means.iterrows():
+            prob = row['cue_on']
+            noise = row['fb21_scalar']
+            mean = row['eval_acc']
+            err = errors.loc[
+                (errors['cue_on'] == prob) &
+                (errors['fb21_scalar'] == noise),
+                'eval_acc'
+            ].values[0]
+            xloc = x_order.index(prob)
+            hloc = hue_order.index(noise)
+            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    
+    # Final plot cleanup
+    #g.set(ylim=(0, 3.5))
+    g.set_axis_labels("", "Eval accuracy")
+    g.set_titles("Layer {col_name}")
+    g.add_legend(title='fb21_scalar', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    
+    # Center shared x-axis label
+    plt.subplots_adjust(bottom=0.2, left=0.12)
+    g.fig.text(0.5, 0.05, 'Reducing feedback from layer 2 to 1 only', ha='center', fontsize=14)
+    g.savefig(f"decode_data/plots/eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback21.png", format="png", bbox_inches="tight")
+    plt.show()
+    
+    # stats
+    df_ex.loc[:,"fb21_scalar"] = pd.Categorical(df_ex["fb21_scalar"], 
+                                          categories=[1.0, 0.7, 0.3], 
+                                          ordered=True)
+    mixed = smf.mixedlm(
+        "eval_acc ~ C(cue_on) + C(layer) + C(fb21_scalar)",
+        data=df_ex,
+        groups=df_ex["model"],
+        re_formula="~1"
+    ).fit()
+    print(mixed.summary())
+    
+    
+    #--------------------------
+    # plot AUC - fb32_s = 1.0 ..reducing fb21 in biased models
     #--------------------------
     df_ex = df[(df['stim_prob']=='Biased') &
                (df['fb32_scalar']==1.0)]
@@ -319,7 +466,7 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     g.fig.text(0.5, 0.05, 'Reducing feedback from layer 2 to 1 only', ha='center', fontsize=14)
-    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback21.png", format="png", bbox_inches="tight")
+    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback21.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -334,9 +481,50 @@ if plots:
     ).fit()
     print(mixed.summary())
     
-
     #--------------------------
-    # plot  - heatmap: interaction between fb21 and fb32
+    # plot eval acc - heatmap: interaction between fb21 and fb32
+    #--------------------------
+    
+    df_ex = df[df['stim_prob'] == "Biased"]
+    df_ex["fb21_scalar"] = pd.to_numeric(df_ex["fb21_scalar"], errors="coerce")
+    df_ex["fb32_scalar"] = pd.to_numeric(df_ex["fb32_scalar"], errors="coerce")
+    df_ex["eval_acc"]  = pd.to_numeric(df_ex["eval_acc"], errors="coerce")
+    
+    # set up facet grid
+    g = sns.FacetGrid(df_ex, row="layer", col="cue_on", margin_titles=True)
+    
+    def facet_heatmap(data, color, **kws):
+        # pivot within each facet's subset
+        pivoted = data.pivot_table(
+            index="fb32_scalar",
+            columns="fb21_scalar",
+            values="eval_acc",
+            aggfunc="mean"
+        )
+        sns.heatmap(
+            pivoted,
+            annot=True,
+            cmap="magma",
+            cbar=False,   # remove duplicate colorbars
+            **kws
+        )
+    
+    # map each facet
+    g.map_dataframe(facet_heatmap)
+    
+    # add a single colorbar
+    # (get first heatmap's mappable)
+    for ax in g.axes.flat:
+        im = ax.collections[0]
+        break
+    #g.fig.colorbar(im, ax=g.axes, orientation="vertical", pad = 0.02,shrink=0.6, fraction = .05)
+    g.fig.subplots_adjust(top=0.9, bottom=0.1, left=0.1, right=0.9, hspace=0.3, wspace=0.3)
+
+    plt.show()
+    
+    
+    #--------------------------
+    # plot auc - heatmap: interaction between fb21 and fb32
     #--------------------------
     
     df_ex = df[df['stim_prob'] == "Biased"]
@@ -376,9 +564,41 @@ if plots:
 
     plt.show()
     
-    
     #--------------------------
-    # plot  - grouped bar plots
+    # plot eval  - grouped bar plots
+    #--------------------------
+    
+    # make sure scalars are numeric
+    df_ex["fb21_scalar"] = pd.to_numeric(df_ex["fb21_scalar"], errors="coerce")
+    df_ex["fb32_scalar"] = pd.to_numeric(df_ex["fb32_scalar"], errors="coerce")
+    df_ex["eval_acc"]   = pd.to_numeric(df_ex["eval_acc"], errors="coerce")
+    
+    # convert scalars to categorical with sorted order (so barplots look clean)
+    df_ex["fb21_scalar"] = pd.Categorical(df_ex["fb21_scalar"], ordered=True, categories=sorted(df_ex["fb21_scalar"].unique()))
+    df_ex["fb32_scalar"] = pd.Categorical(df_ex["fb32_scalar"], ordered=True, categories=sorted(df_ex["fb32_scalar"].unique()))
+    
+    # grouped barplot
+    g = sns.catplot(
+        data=df_ex,
+        x="fb21_scalar",
+        y="eval_acc",
+        hue="fb32_scalar",
+        col="cue_on",
+        row="layer",
+        kind="bar",
+        palette = discrete_palette,
+        margin_titles=True,
+        height=4,
+        aspect=1.2
+    )
+    
+    g.set_axis_labels("fb21_scalar", "Eval Accuracy")
+    g.set_titles(row_template="{row_name}", col_template="{col_name}")
+    g.add_legend(title="fb32_scalar")
+    
+    plt.show()
+    #--------------------------
+    # plot auc  - grouped bar plots
     #--------------------------
     
     # make sure scalars are numeric
@@ -422,6 +642,7 @@ if plots:
     # df['fb21_scalar'] = df['fb21_scalar'].astype(float).astype('category')
     # df['fb32_scalar'] = df['fb32_scalar'].astype(float).astype('category')
     df['delta_AUC'] = pd.to_numeric(df['delta_AUC'], errors='coerce')
+    df['eval_acc'] = pd.to_numeric(df['eval_acc'], errors='coerce')
     
     df_fx = df[df['stim_prob']=='Biased']
     df_fx.loc[:,"fb21_scalar"] = pd.Categorical(df_fx["fb21_scalar"], 
@@ -452,7 +673,43 @@ if plots:
         df_diff = m1.df_modelwc - m0.df_modelwc
         pval = stats.chi2.sf(lr, df=df_diff)       
         print(f"{name}: LR={lr:.2f}, df={df_diff}, p={pval:.4g}")
-        
+    
+    ## Eval ##
+    # Full model: main effects + interaction
+    full = smf.mixedlm(
+        "eval_acc ~ C(fb21_scalar) * C(fb32_scalar) + C(cue_on) + C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+    # Model without interaction (just main effects)
+    no_interaction = smf.mixedlm(
+        "eval_acc ~ C(fb21_scalar) + C(fb32_scalar) + C(cue_on) +C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+    # Model without fb32_scalar
+    no_fb32 = smf.mixedlm(
+        "eval_acc ~ C(fb21_scalar)+ C(cue_on) +C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+    # Model without fb21_scalar
+    no_fb21 = smf.mixedlm(
+        "eval_acc ~ C(fb32_scalar)+ C(cue_on) +C(layer)", 
+        df_fx, 
+        groups=df_fx["model"], re_formula="~1"
+    ).fit(method="nm", reml=False)
+    
+
+    
+    lrtest(full, no_interaction, "Interaction fb21*fb32")
+    lrtest(no_interaction, no_fb32, "Main effect fb32")
+    lrtest(no_interaction, no_fb21, "Main effect fb21")
+
+    ## AUC ##
     # Full model: main effects + interaction
     full = smf.mixedlm(
         "delta_AUC ~ C(fb21_scalar) * C(fb32_scalar) + C(cue_on) + C(layer)", 
@@ -486,10 +743,6 @@ if plots:
     lrtest(full, no_interaction, "Interaction fb21*fb32")
     lrtest(no_interaction, no_fb32, "Main effect fb32")
     lrtest(no_interaction, no_fb21, "Main effect fb21")
-
-
-
-##### EVAL ACC
 
 
 

@@ -146,8 +146,8 @@ for stim_prob in stim_probs:
                             'delta_AUC': (area_exp)-(area_unexp),
                              'eval_acc': mod_data['m_acc'][m],
                              'stim_label': mod_data['stim_label'][m,:],
-                             'outputs': mod_data['outputs'][m,:]
-                            
+#                            'outputs': mod_data['outputs'][m,:]
+#                           
                             })
 
 
@@ -178,276 +178,276 @@ if plots:
     
     # plot
     #df['stim_prob'] = df['stim_prob'].apply(lambda x: 'Unbiased' if x==16 or x==80 else 'Biased')  # categorical x-axis
-    df['layer'] = df['layer'].astype(str)
-    df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
+    #df['layer'] = df['layer'].astype(str)
+    #df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
     #df['cue_on'] = df['cue_on'].astype('category')
     #df['cue_layer'] = df['cue_layer'].astype('category')
     
-    cueon_map = {0: 'Start', 75: 'Stim Offset'}
-    df['cue_on'] = df['cue_on'].map(cueon_map)
-    df['cue_on'] = pd.Categorical(
-        df['cue_on'],
-        categories=['Start', 'Stim Offset'],
-        ordered=True
-    )
-    cueL_map = {1: 'hLayer1', 3: 'hLayer3'}
-    df['cue_layer'] = df['cue_layer'].map(cueL_map)
-    df['cue_layer'] = pd.Categorical(
-        df['cue_layer'],
-        categories=['hLayer1', 'hLayer3'],
-        ordered=True
-    )
+    # cueon_map = {0: 'Start', 75: 'Stim Offset'}
+    # df['cue_on'] = df['cue_on'].map(cueon_map)
+    # df['cue_on'] = pd.Categorical(
+    #     df['cue_on'],
+    #     categories=['Start', 'Stim Offset'],
+    #     ordered=True
+    # )
+    # cueL_map = {1: 'hLayer1', 3: 'hLayer3'}
+    # df['cue_layer'] = df['cue_layer'].map(cueL_map)
+    # df['cue_layer'] = pd.Categorical(
+    #     df['cue_layer'],
+    #     categories=['hLayer1', 'hLayer3'],
+    #     ordered=True
+    # )
     
     
-    # Define function for SEM
-    def sem(x):
-        return np.std(x, ddof=1) / np.sqrt(len(x))
+    # # Define function for SEM
+    # def sem(x):
+    #     return np.std(x, ddof=1) / np.sqrt(len(x))
     
     
     
-    #--------------------------
-    # plot interaction between cuelayer and cueon  - layer 1
-    #--------------------------
-    df_h1 = df[df['layer']=="1"]
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_h1, col="stim_prob", col_wrap=2, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("magma", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="cue_on",
-        y="delta_AUC",
-        hue="cue_layer",
-        palette = custom_subset,
-        ci=None,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True
-    )
+    # #--------------------------
+    # # plot interaction between cuelayer and cueon  - layer 1
+    # #--------------------------
+    # df_h1 = df[df['layer']=="1"]
+    # # Set plot aesthetics
+    # sns.set(style="ticks", context="talk")
+    # # Initialize FacetGrid
+    # g = sns.FacetGrid(df_h1, col="stim_prob", col_wrap=2, sharey=True, height = 4, aspect = 1.2)
+    # palette = sns.color_palette("magma", 20)
+    # custom_subset = [palette[i] for i in [16,10,4]]
+    # # Map barplot onto each facet
+    # g.map_dataframe(
+    #     sns.barplot,
+    #     x="cue_on",
+    #     y="delta_AUC",
+    #     hue="cue_layer",
+    #     palette = custom_subset,
+    #     ci=None,
+    #     errorbar=None,
+    #     estimator=np.mean,
+    #     dodge = True
+    # )
     
-    # Add custom error bars
-    hue_order = ['hLayer1', 'hLayer3']
-    x_order = ['Start', 'Stim Offset']
-    n_hues = len(hue_order)
-    bar_width = 0.8
-    width_per_bar = bar_width / n_hues
+    # # Add custom error bars
+    # hue_order = ['hLayer1', 'hLayer3']
+    # x_order = ['Start', 'Stim Offset']
+    # n_hues = len(hue_order)
+    # bar_width = 0.8
+    # width_per_bar = bar_width / n_hues
     
-    for ax, stim_prob in zip(g.axes.flat, sorted(df_h1['stim_prob'].unique(), reverse=True, key=str)):
-        subset = df_h1[df_h1['stim_prob'] == stim_prob]
-        means = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].apply(sem).reset_index()
+    # for ax, stim_prob in zip(g.axes.flat, sorted(df_h1['stim_prob'].unique(), reverse=True, key=str)):
+    #     subset = df_h1[df_h1['stim_prob'] == stim_prob]
+    #     means = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].mean().reset_index()
+    #     errors = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            cueon = row['cue_on']
-            cuelayer= row['cue_layer']
-            mean = row['delta_AUC']
-            err = errors.loc[
-                (errors['cue_on'] == cueon) &
-                (errors['cue_layer'] == cuelayer),
-                'delta_AUC'
-            ].values[0]
-            xloc = x_order.index(cueon)
-            hloc = hue_order.index(cuelayer)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    #     for i, row in means.iterrows():
+    #         cueon = row['cue_on']
+    #         cuelayer= row['cue_layer']
+    #         mean = row['delta_AUC']
+    #         err = errors.loc[
+    #             (errors['cue_on'] == cueon) &
+    #             (errors['cue_layer'] == cuelayer),
+    #             'delta_AUC'
+    #         ].values[0]
+    #         xloc = x_order.index(cueon)
+    #         hloc = hue_order.index(cuelayer)
+    #         bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+    #         ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "AUC Expected - Unexpected")
-    g.set_titles("{col_name}")
-    g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    # # Final plot cleanup
+    # #g.set(ylim=(0, 3.5))
+    # g.set_axis_labels("", "AUC Expected - Unexpected")
+    # g.set_titles("{col_name}")
+    # g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    g.fig.text(0.5, 0.05, 'cue_on', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_x_cuelayer_h1.png", format="png", bbox_inches="tight")
-    plt.show()
+    # # Center shared x-axis label
+    # plt.subplots_adjust(bottom=0.2, left=0.12)
+    # g.fig.text(0.5, 0.05, 'cue_on', ha='center', fontsize=14)
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_x_cuelayer_h1.png", format="png", bbox_inches="tight")
+    # plt.show()
     
-    #--------------------------
-    # plot interaction between cuelayer and cueon  - layer 2
-    #--------------------------
-    df_h2 = df[df['layer']=="2"]
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_h2, col="stim_prob", col_wrap=2, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("magma", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="cue_on",
-        y="delta_AUC",
-        hue="cue_layer",
-        palette = custom_subset,
-        ci=None,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True
-    )
+    # #--------------------------
+    # # plot interaction between cuelayer and cueon  - layer 2
+    # #--------------------------
+    # df_h2 = df[df['layer']=="2"]
+    # # Set plot aesthetics
+    # sns.set(style="ticks", context="talk")
+    # # Initialize FacetGrid
+    # g = sns.FacetGrid(df_h2, col="stim_prob", col_wrap=2, sharey=True, height = 4, aspect = 1.2)
+    # palette = sns.color_palette("magma", 20)
+    # custom_subset = [palette[i] for i in [16,10,4]]
+    # # Map barplot onto each facet
+    # g.map_dataframe(
+    #     sns.barplot,
+    #     x="cue_on",
+    #     y="delta_AUC",
+    #     hue="cue_layer",
+    #     palette = custom_subset,
+    #     ci=None,
+    #     errorbar=None,
+    #     estimator=np.mean,
+    #     dodge = True
+    # )
     
-    # Add custom error bars
-    hue_order = ['hLayer1', 'hLayer3']
-    x_order = ['Start', 'Stim Offset']
-    n_hues = len(hue_order)
-    bar_width = 0.8
-    width_per_bar = bar_width / n_hues
+    # # Add custom error bars
+    # hue_order = ['hLayer1', 'hLayer3']
+    # x_order = ['Start', 'Stim Offset']
+    # n_hues = len(hue_order)
+    # bar_width = 0.8
+    # width_per_bar = bar_width / n_hues
     
-    for ax, stim_prob in zip(g.axes.flat, sorted(df_h2['stim_prob'].unique(), reverse=True, key=str)):
-        subset = df_h2[df_h2['stim_prob'] == stim_prob]
-        means = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].apply(sem).reset_index()
+    # for ax, stim_prob in zip(g.axes.flat, sorted(df_h2['stim_prob'].unique(), reverse=True, key=str)):
+    #     subset = df_h2[df_h2['stim_prob'] == stim_prob]
+    #     means = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].mean().reset_index()
+    #     errors = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            cueon = row['cue_on']
-            cuelayer= row['cue_layer']
-            mean = row['delta_AUC']
-            err = errors.loc[
-                (errors['cue_on'] == cueon) &
-                (errors['cue_layer'] == cuelayer),
-                'delta_AUC'
-            ].values[0]
-            xloc = x_order.index(cueon)
-            hloc = hue_order.index(cuelayer)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    #     for i, row in means.iterrows():
+    #         cueon = row['cue_on']
+    #         cuelayer= row['cue_layer']
+    #         mean = row['delta_AUC']
+    #         err = errors.loc[
+    #             (errors['cue_on'] == cueon) &
+    #             (errors['cue_layer'] == cuelayer),
+    #             'delta_AUC'
+    #         ].values[0]
+    #         xloc = x_order.index(cueon)
+    #         hloc = hue_order.index(cuelayer)
+    #         bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+    #         ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "AUC Expected - Unexpected")
-    g.set_titles("{col_name}")
-    g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    # # Final plot cleanup
+    # #g.set(ylim=(0, 3.5))
+    # g.set_axis_labels("", "AUC Expected - Unexpected")
+    # g.set_titles("{col_name}")
+    # g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    g.fig.text(0.5, 0.05, 'cue_on', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_x_cuelayer_h2.png", format="png", bbox_inches="tight")
-    plt.show()
+    # # Center shared x-axis label
+    # plt.subplots_adjust(bottom=0.2, left=0.12)
+    # g.fig.text(0.5, 0.05, 'cue_on', ha='center', fontsize=14)
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_x_cuelayer_h2.png", format="png", bbox_inches="tight")
+    # plt.show()
     
-    #--------------------------
-    # plot interaction between cuelayer and cueon - layer 3
-    #--------------------------
-    df_h3 = df[df['layer']=="3"]
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_h3, col="stim_prob", col_wrap=2, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("magma", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="cue_on",
-        y="delta_AUC",
-        hue="cue_layer",
-        palette = custom_subset,
-        ci=None,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True
-    )
+    # #--------------------------
+    # # plot interaction between cuelayer and cueon - layer 3
+    # #--------------------------
+    # df_h3 = df[df['layer']=="3"]
+    # # Set plot aesthetics
+    # sns.set(style="ticks", context="talk")
+    # # Initialize FacetGrid
+    # g = sns.FacetGrid(df_h3, col="stim_prob", col_wrap=2, sharey=True, height = 4, aspect = 1.2)
+    # palette = sns.color_palette("magma", 20)
+    # custom_subset = [palette[i] for i in [16,10,4]]
+    # # Map barplot onto each facet
+    # g.map_dataframe(
+    #     sns.barplot,
+    #     x="cue_on",
+    #     y="delta_AUC",
+    #     hue="cue_layer",
+    #     palette = custom_subset,
+    #     ci=None,
+    #     errorbar=None,
+    #     estimator=np.mean,
+    #     dodge = True
+    # )
     
-    # Add custom error bars
-    hue_order = ['hLayer1', 'hLayer3']
-    x_order = ['Start', 'Stim Offset']
-    n_hues = len(hue_order)
-    bar_width = 0.8
-    width_per_bar = bar_width / n_hues
+    # # Add custom error bars
+    # hue_order = ['hLayer1', 'hLayer3']
+    # x_order = ['Start', 'Stim Offset']
+    # n_hues = len(hue_order)
+    # bar_width = 0.8
+    # width_per_bar = bar_width / n_hues
     
-    for ax, stim_prob in zip(g.axes.flat, sorted(df_h3['stim_prob'].unique(), reverse=True, key=str)):
-        subset = df_h3[df_h3['stim_prob'] == stim_prob]
-        means = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].apply(sem).reset_index()
+    # for ax, stim_prob in zip(g.axes.flat, sorted(df_h3['stim_prob'].unique(), reverse=True, key=str)):
+    #     subset = df_h3[df_h3['stim_prob'] == stim_prob]
+    #     means = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].mean().reset_index()
+    #     errors = subset.groupby(['cue_on', 'cue_layer'])['delta_AUC'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            cueon = row['cue_on']
-            cuelayer= row['cue_layer']
-            mean = row['delta_AUC']
-            err = errors.loc[
-                (errors['cue_on'] == cueon) &
-                (errors['cue_layer'] == cuelayer),
-                'delta_AUC'
-            ].values[0]
-            xloc = x_order.index(cueon)
-            hloc = hue_order.index(cuelayer)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    #     for i, row in means.iterrows():
+    #         cueon = row['cue_on']
+    #         cuelayer= row['cue_layer']
+    #         mean = row['delta_AUC']
+    #         err = errors.loc[
+    #             (errors['cue_on'] == cueon) &
+    #             (errors['cue_layer'] == cuelayer),
+    #             'delta_AUC'
+    #         ].values[0]
+    #         xloc = x_order.index(cueon)
+    #         hloc = hue_order.index(cuelayer)
+    #         bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+    #         ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "AUC Expected - Unexpected")
-    g.set_titles("{col_name}")
-    g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    # # Final plot cleanup
+    # #g.set(ylim=(0, 3.5))
+    # g.set_axis_labels("", "AUC Expected - Unexpected")
+    # g.set_titles("{col_name}")
+    # g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    g.fig.text(0.5, 0.05, 'cue_on', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_x_cuelayer_h3.png", format="png", bbox_inches="tight")
-    plt.show()
+    # # Center shared x-axis label
+    # plt.subplots_adjust(bottom=0.2, left=0.12)
+    # g.fig.text(0.5, 0.05, 'cue_on', ha='center', fontsize=14)
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_x_cuelayer_h3.png", format="png", bbox_inches="tight")
+    # plt.show()
     
-    #--------------------------
-    # plot main effect of cueon when cue layer 1
-    #--------------------------
-    df_ex = df[df['cue_layer']=='hLayer1']
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("viridis", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="stim_prob",
-        y="delta_AUC",
-        hue="cue_on",
-        palette = custom_subset,
-        ci=None,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True
-    )
+    # #--------------------------
+    # # plot main effect of cueon when cue layer 1
+    # #--------------------------
+    # df_ex = df[df['cue_layer']=='hLayer1']
+    # # Set plot aesthetics
+    # sns.set(style="ticks", context="talk")
+    # # Initialize FacetGrid
+    # g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    # palette = sns.color_palette("viridis", 20)
+    # custom_subset = [palette[i] for i in [16,10,4]]
+    # # Map barplot onto each facet
+    # g.map_dataframe(
+    #     sns.barplot,
+    #     x="stim_prob",
+    #     y="delta_AUC",
+    #     hue="cue_on",
+    #     palette = custom_subset,
+    #     ci=None,
+    #     errorbar=None,
+    #     estimator=np.mean,
+    #     dodge = True
+    # )
     
-    # Add custom error bars
-    hue_order = ['Start', 'Stim Offset']
-    x_order = sorted(df_ex['stim_prob'].unique(), reverse=True)
-    n_hues = len(hue_order)
-    bar_width = 0.8
-    width_per_bar = bar_width / n_hues
+    # # Add custom error bars
+    # hue_order = ['Start', 'Stim Offset']
+    # x_order = sorted(df_ex['stim_prob'].unique(), reverse=True)
+    # n_hues = len(hue_order)
+    # bar_width = 0.8
+    # width_per_bar = bar_width / n_hues
     
-    for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
-        subset = df_ex[df_ex['layer'] == layer]
-        means = subset.groupby(['stim_prob', 'cue_on'])['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['stim_prob', 'cue_on'])['delta_AUC'].apply(sem).reset_index()
+    # for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
+    #     subset = df_ex[df_ex['layer'] == layer]
+    #     means = subset.groupby(['stim_prob', 'cue_on'])['delta_AUC'].mean().reset_index()
+    #     errors = subset.groupby(['stim_prob', 'cue_on'])['delta_AUC'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            prob = row['stim_prob']
-            noise = row['cue_on']
-            mean = row['delta_AUC']
-            err = errors.loc[
-                (errors['stim_prob'] == prob) &
-                (errors['cue_on'] == noise),
-                'delta_AUC'
-            ].values[0]
-            xloc = x_order.index(prob)
-            hloc = hue_order.index(noise)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    #     for i, row in means.iterrows():
+    #         prob = row['stim_prob']
+    #         noise = row['cue_on']
+    #         mean = row['delta_AUC']
+    #         err = errors.loc[
+    #             (errors['stim_prob'] == prob) &
+    #             (errors['cue_on'] == noise),
+    #             'delta_AUC'
+    #         ].values[0]
+    #         xloc = x_order.index(prob)
+    #         hloc = hue_order.index(noise)
+    #         bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+    #         ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "AUC Expected - Unexpected")
-    g.set_titles("Layer {col_name}")
-    g.add_legend(title='cue_on', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    # # Final plot cleanup
+    # #g.set(ylim=(0, 3.5))
+    # g.set_axis_labels("", "AUC Expected - Unexpected")
+    # g.set_titles("Layer {col_name}")
+    # g.add_legend(title='cue_on', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer1.png", format="png", bbox_inches="tight")
-    plt.show()
+    # # Center shared x-axis label
+    # plt.subplots_adjust(bottom=0.2, left=0.12)
+    # #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer1.png", format="png", bbox_inches="tight")
+    # plt.show()
     
     #--------------------------
     # plot main effect of cueon when cue layer3
@@ -506,199 +506,199 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3.png", format="png", bbox_inches="tight")
+    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3.png", format="png", bbox_inches="tight")
     plt.show()
     
     #--------------------------
     # plot main effect of cuelayer when cue on 0
-    #--------------------------
-    df_in = df[df['cue_on']=='Start']
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_in, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("viridis", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="stim_prob",
-        y="delta_AUC",
-        hue="cue_layer",
-        palette = custom_subset,
-        ci=None,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True
-    )
+    # #--------------------------
+    # df_in = df[df['cue_on']=='Start']
+    # # Set plot aesthetics
+    # sns.set(style="ticks", context="talk")
+    # # Initialize FacetGrid
+    # g = sns.FacetGrid(df_in, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    # palette = sns.color_palette("viridis", 20)
+    # custom_subset = [palette[i] for i in [16,10,4]]
+    # # Map barplot onto each facet
+    # g.map_dataframe(
+    #     sns.barplot,
+    #     x="stim_prob",
+    #     y="delta_AUC",
+    #     hue="cue_layer",
+    #     palette = custom_subset,
+    #     ci=None,
+    #     errorbar=None,
+    #     estimator=np.mean,
+    #     dodge = True
+    # )
     
-    # Add custom error bars
-    hue_order = ['hLayer1', 'hLayer3'] 
-    x_order = sorted(df_in['stim_prob'].unique(), reverse=True)
-    n_hues = len(hue_order)
-    bar_width = 0.8
-    width_per_bar = bar_width / n_hues
+    # # Add custom error bars
+    # hue_order = ['hLayer1', 'hLayer3'] 
+    # x_order = sorted(df_in['stim_prob'].unique(), reverse=True)
+    # n_hues = len(hue_order)
+    # bar_width = 0.8
+    # width_per_bar = bar_width / n_hues
     
-    for ax, layer in zip(g.axes.flat, sorted(df_in['layer'].unique(), key=int)):
-        subset = df_in[df_in['layer'] == layer]
-        means = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].apply(sem).reset_index()
+    # for ax, layer in zip(g.axes.flat, sorted(df_in['layer'].unique(), key=int)):
+    #     subset = df_in[df_in['layer'] == layer]
+    #     means = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].mean().reset_index()
+    #     errors = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            prob = row['stim_prob']
-            noise = row['cue_layer']
-            mean = row['delta_AUC']
-            err = errors.loc[
-                (errors['stim_prob'] == prob) &
-                (errors['cue_layer'] == noise),
-                'delta_AUC'
-            ].values[0]
-            xloc = x_order.index(prob)
-            hloc = hue_order.index(noise)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    #     for i, row in means.iterrows():
+    #         prob = row['stim_prob']
+    #         noise = row['cue_layer']
+    #         mean = row['delta_AUC']
+    #         err = errors.loc[
+    #             (errors['stim_prob'] == prob) &
+    #             (errors['cue_layer'] == noise),
+    #             'delta_AUC'
+    #         ].values[0]
+    #         xloc = x_order.index(prob)
+    #         hloc = hue_order.index(noise)
+    #         bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+    #         ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "AUC Expected - Unexpected")
-    g.set_titles("Layer {col_name}")
-    g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    # # Final plot cleanup
+    # #g.set(ylim=(0, 3.5))
+    # g.set_axis_labels("", "AUC Expected - Unexpected")
+    # g.set_titles("Layer {col_name}")
+    # g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cuelayer_cueon0.png", format="png", bbox_inches="tight")
-    plt.show()
+    # # Center shared x-axis label
+    # plt.subplots_adjust(bottom=0.2, left=0.12)
+    # #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cuelayer_cueon0.png", format="png", bbox_inches="tight")
+    # plt.show()
     
-    #--------------------------
-    # plot main effect of cuelayer when cue on 75
-    #--------------------------
-    df_in = df[df['cue_on']=='Stim Offset']
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_in, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
-    palette = sns.color_palette("viridis", 20)
-    custom_subset = [palette[i] for i in [16,10,4]]
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="stim_prob",
-        y="delta_AUC",
-        hue="cue_layer",
-        palette = custom_subset,
-        ci=None,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True
-    )
+    # #--------------------------
+    # # plot main effect of cuelayer when cue on 75
+    # #--------------------------
+    # df_in = df[df['cue_on']=='Stim Offset']
+    # # Set plot aesthetics
+    # sns.set(style="ticks", context="talk")
+    # # Initialize FacetGrid
+    # g = sns.FacetGrid(df_in, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    # palette = sns.color_palette("viridis", 20)
+    # custom_subset = [palette[i] for i in [16,10,4]]
+    # # Map barplot onto each facet
+    # g.map_dataframe(
+    #     sns.barplot,
+    #     x="stim_prob",
+    #     y="delta_AUC",
+    #     hue="cue_layer",
+    #     palette = custom_subset,
+    #     ci=None,
+    #     errorbar=None,
+    #     estimator=np.mean,
+    #     dodge = True
+    # )
     
-    # Add custom error bars
-    hue_order = ['hLayer1', 'hLayer3'] 
-    x_order = sorted(df_in['stim_prob'].unique(), reverse=True)
-    n_hues = len(hue_order)
-    bar_width = 0.8
-    width_per_bar = bar_width / n_hues
+    # # Add custom error bars
+    # hue_order = ['hLayer1', 'hLayer3'] 
+    # x_order = sorted(df_in['stim_prob'].unique(), reverse=True)
+    # n_hues = len(hue_order)
+    # bar_width = 0.8
+    # width_per_bar = bar_width / n_hues
     
-    for ax, layer in zip(g.axes.flat, sorted(df_in['layer'].unique(), key=int)):
-        subset = df_in[df_in['layer'] == layer]
-        means = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].apply(sem).reset_index()
+    # for ax, layer in zip(g.axes.flat, sorted(df_in['layer'].unique(), key=int)):
+    #     subset = df_in[df_in['layer'] == layer]
+    #     means = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].mean().reset_index()
+    #     errors = subset.groupby(['stim_prob', 'cue_layer'], observed = False)['delta_AUC'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            prob = row['stim_prob']
-            noise = row['cue_layer']
-            mean = row['delta_AUC']
-            err = errors.loc[
-                (errors['stim_prob'] == prob) &
-                (errors['cue_layer'] == noise),
-                'delta_AUC'
-            ].values[0]
-            xloc = x_order.index(prob)
-            hloc = hue_order.index(noise)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    #     for i, row in means.iterrows():
+    #         prob = row['stim_prob']
+    #         noise = row['cue_layer']
+    #         mean = row['delta_AUC']
+    #         err = errors.loc[
+    #             (errors['stim_prob'] == prob) &
+    #             (errors['cue_layer'] == noise),
+    #             'delta_AUC'
+    #         ].values[0]
+    #         xloc = x_order.index(prob)
+    #         hloc = hue_order.index(noise)
+    #         bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+    #         ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "AUC Expected - Unexpected")
-    g.set_titles("Layer {col_name}")
-    g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    # # Final plot cleanup
+    # #g.set(ylim=(0, 3.5))
+    # g.set_axis_labels("", "AUC Expected - Unexpected")
+    # g.set_titles("Layer {col_name}")
+    # g.add_legend(title='cuelayer', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cuelayer_cueon75.png", format="png", bbox_inches="tight")
-    plt.show()
+    # # Center shared x-axis label
+    # plt.subplots_adjust(bottom=0.2, left=0.12)
+    # #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cuelayer_cueon75.png", format="png", bbox_inches="tight")
+    # plt.show()
     
     #--------------------------
     # stats
     #--------------------------
     
-    # make sure what's categorical is treated as such
-    df['cue_on'] = df['cue_on'].astype('category')
-    df['cue_layer'] = df['cue_layer'].astype('category')
-    df['layer'] = df['layer'].astype('category')
-    df['model'] = df['model'].astype('category')
+    # # make sure what's categorical is treated as such
+    # df['cue_on'] = df['cue_on'].astype('category')
+    # df['cue_layer'] = df['cue_layer'].astype('category')
+    # df['layer'] = df['layer'].astype('category')
+    # df['model'] = df['model'].astype('category')
     
-    ## full factorial (stim_prob × cue_on × cue_layer) with random intercepts for model
-    mixed = smf.mixedlm(
-        "delta_AUC ~ C(stim_prob) * C(cue_on) * C(cue_layer) * C(layer)",
-        data=df,
-        groups=df["model"],       # random intercept per model
-        re_formula="~1"           # only random intercept (simplest)
-    ).fit()
-    print(mixed.summary())
+    # ## full factorial (stim_prob × cue_on × cue_layer) with random intercepts for model
+    # mixed = smf.mixedlm(
+    #     "delta_AUC ~ C(stim_prob) * C(cue_on) * C(cue_layer) * C(layer)",
+    #     data=df,
+    #     groups=df["model"],       # random intercept per model
+    #     re_formula="~1"           # only random intercept (simplest)
+    # ).fit()
+    # print(mixed.summary())
     
-    ## 1 sample t-test stim prob > 0
-    for stim in df['stim_prob'].unique():
-        values = df.loc[df['stim_prob']==stim, 'delta_AUC']
-        t, p = stats.ttest_1samp(values, 0, alternative = 'greater')
-        print(f"{stim}: mean={values.mean():.3f}, sd={values.std():.3f}, t={t:.2f}, p={p:.4f}")
-    
-    
-    
-    ## stim_prob == biased only, 2x2 rm-ANOVA
-    
-    biased = df[df['stim_prob']=="Biased"]
-    
-    # cue_on x cue_layer x layer
-    mixed_biased = smf.mixedlm(
-        "delta_AUC ~ C(cue_on) * C(cue_layer) * C(layer)",
-        data=biased,
-        groups=biased["model"],
-        re_formula="~1"
-    ).fit()
-    print(mixed_biased.summary())
-    
-    # cue_on x cue_layer
-    mixed_biased = smf.mixedlm(
-        "delta_AUC ~ C(cue_on) * C(cue_layer)",
-        data=biased,
-        groups=biased["model"],
-        re_formula="~1"
-    ).fit()
-    print(mixed_biased.summary())
-    
-    # post-hoc pairwise comparison of cue_on in layers
+    # ## 1 sample t-test stim prob > 0
+    # for stim in df['stim_prob'].unique():
+    #     values = df.loc[df['stim_prob']==stim, 'delta_AUC']
+    #     t, p = stats.ttest_1samp(values, 0, alternative = 'greater')
+    #     print(f"{stim}: mean={values.mean():.3f}, sd={values.std():.3f}, t={t:.2f}, p={p:.4f}")
     
     
-    # Pairwise t-tests within each cue_layer
-    for layer in biased['cue_layer'].unique():
-        tmp = biased[biased['cue_layer'] == layer]
     
-        ph = pg.pairwise_tests(
-            dv="delta_AUC",
-            within="cue_on",       # comparing Start vs Stim Offset
-            subject="model",       # repeated measure = model
-            data=tmp,
-            padjust="bonf",        # adjust for multiple testing
-            effsize="cohen",
-            alternative = 'greater'
-        )
+    # ## stim_prob == biased only, 2x2 rm-ANOVA
     
-        print(f"\nPost-hoc within {layer}:")
-        print(ph)   # show full output so you see all columns
+    # biased = df[df['stim_prob']=="Biased"]
+    
+    # # cue_on x cue_layer x layer
+    # mixed_biased = smf.mixedlm(
+    #     "delta_AUC ~ C(cue_on) * C(cue_layer) * C(layer)",
+    #     data=biased,
+    #     groups=biased["model"],
+    #     re_formula="~1"
+    # ).fit()
+    # print(mixed_biased.summary())
+    
+    # # cue_on x cue_layer
+    # mixed_biased = smf.mixedlm(
+    #     "delta_AUC ~ C(cue_on) * C(cue_layer)",
+    #     data=biased,
+    #     groups=biased["model"],
+    #     re_formula="~1"
+    # ).fit()
+    # print(mixed_biased.summary())
+    
+    # # post-hoc pairwise comparison of cue_on in layers
+    
+    
+    # # Pairwise t-tests within each cue_layer
+    # for layer in biased['cue_layer'].unique():
+    #     tmp = biased[biased['cue_layer'] == layer]
+    
+    #     ph = pg.pairwise_tests(
+    #         dv="delta_AUC",
+    #         within="cue_on",       # comparing Start vs Stim Offset
+    #         subject="model",       # repeated measure = model
+    #         data=tmp,
+    #         padjust="bonf",        # adjust for multiple testing
+    #         effsize="cohen",
+    #         alternative = 'greater'
+    #     )
+    
+    #     print(f"\nPost-hoc within {layer}:")
+    #     print(ph)   # show full output so you see all columns
     
     
     
