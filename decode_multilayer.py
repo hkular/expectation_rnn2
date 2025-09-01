@@ -184,6 +184,7 @@ n_layers = 3
 #--------------------------
 m_acc = np.full((n_models), np.nan)
 outputs = np.full((n_models,T, batch_size, n_afc), np.nan)
+s_labels = np.full((n_models,T, batch_size), np.nan)
 if time_or_xgen == 0:
     over_acc = np.full( ( n_models,n_layers,T//w_size ),np.nan )
     if classes == 'cue':
@@ -256,6 +257,7 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
         outputs[m_idx,:],s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc[m_idx],tbt_acc,cues = eval_model( net, task, sr_scram )
         # s_label is a diff shape for cue version, deal with if statement later
         s_label_int = np.argmax(s_label, axis=1)
+        s_labels[m_idx,:] = s_label_int
         cues_int = np.argmax(cues[100,:,:].cpu().detach().numpy(), axis =1) # at t=100 cue should be on in all conditions change if we do early cue offset
     
         # store indices
@@ -305,7 +307,7 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
 
 # save out the data across models
 np.savez( fn_out,n_tmpts=T,m_acc=m_acc,
-         over_acc=over_acc,stim_acc=stim_acc,stim_label=s_label_int,outputs=outputs,
+         over_acc=over_acc,stim_acc=stim_acc,stim_label=s_labels,outputs=outputs,
          cues=cues.cpu().detach(),h1=h1,h2=h2,h3=h3,
          params_dict=params_dict )
  

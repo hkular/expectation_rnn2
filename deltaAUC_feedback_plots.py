@@ -170,10 +170,10 @@ for stim_prob in stim_probs:
                              'AUC_exp': area_exp,
                              'AUC_unexp': area_unexp,
                              'delta_AUC': (area_exp)-(area_unexp),
-                             'eval_acc': np.mean(mod_data['tbt_acc'][m,:])
-                             
+                             'eval_acc': np.mean(mod_data['m_acc'][m,:]),
+                             'stim_label': mod_data['stim_label'],
+                             'outputs': mod_data['outputs']
                              })
-
 
 # Close connections
 #sftp.close()
