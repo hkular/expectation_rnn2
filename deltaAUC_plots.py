@@ -96,9 +96,7 @@ for stim_prob in stim_probs:
             # timing
             t = np.arange(0, T, T / mod_data['stim_acc'].shape[3])
             stim_offset_win = int(np.where(t == stim_offset)[0][0])
-            decay_win = int(np.where(t==stim_offset+decay_window)[0][0])
-            sustain_win = int(np.where(t==stim_offset+sustain_window)[0][0])
-            
+
           
             for m in range(n_models):
                 for l in range(n_layers):
@@ -118,10 +116,6 @@ for stim_prob in stim_probs:
                             'AUC_one': area_one,
                             'AUC_two': area_two,
                             'delta_AUC': (area_one)-(area_two)
-                            # 'decay': slope,
-                            # 'peak': peak,
-                            # 'sustain': sustained_acc[m,l,s]
-                            
                             })
                     else:
                         # calculate AUC
@@ -150,9 +144,9 @@ for stim_prob in stim_probs:
                             'AUC_exp': area_exp,
                             'AUC_unexp': area_unexp,
                             'delta_AUC': (area_exp)-(area_unexp),
-                             'eval_acc': np.mean(mod_data['m_acc'][m,:]),
-                             'stim_label': mod_data['stim_label'],
-                             'outputs': mod_data['outputs']
+                             'eval_acc': mod_data['m_acc'][m],
+                             'stim_label': mod_data['stim_label'][m,:],
+                             'outputs': mod_data['outputs'][m,:]
                             
                             })
 

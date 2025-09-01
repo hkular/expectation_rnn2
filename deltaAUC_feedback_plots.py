@@ -133,47 +133,27 @@ for stim_prob in stim_probs:
              for m in range(n_models):
                  for l in range(n_layers):
                          
-                     if classes == 'cue':
-                         # calculate AUC
-                         area_one = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
-                         area_two = trapezoid(mod_data['stim_acc'][m, l, 1, :][stim_offset_win:], t[stim_offset_win:])
-                         
-         
-                         results.append({
-                             'stim_prob': int(100*stim_prob),
-                             'cue_on': cue_on,
-                             'cue_layer': cue_layer,
-                             'model': m,
-                             'layer': l+1,
-                             'AUC_one': area_one,
-                             'AUC_two': area_two,
-                             'delta_AUC': (area_one)-(area_two)
-                             # 'decay': slope,
-                             # 'peak': peak,
-                             # 'sustain': sustained_acc[m,l,s]
-                             
-                             })
-                     else:
-                         # calculate AUC
-                         area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
-                         area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
-                         
-         
-                         results.append({
-                             'stim_prob': int(100*stim_prob),
-                             'cue_on': cue_on,
-                             'cue_layer': cue_layer,
-                             'model': m,
-                             'layer': l+1,
-                             'fb21_scalar':fb21_scalar,
-                             'fb32_scalar':fb32_scalar,
-                             'AUC_exp': area_exp,
-                             'AUC_unexp': area_unexp,
-                             'delta_AUC': (area_exp)-(area_unexp),
-                             'eval_acc': np.mean(mod_data['m_acc'][m,:]),
-                             'stim_label': mod_data['stim_label'],
-                             'outputs': mod_data['outputs']
-                             })
+                     
+                        # calculate AUC
+                        area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
+                        area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
+                        
+        
+                        results.append({
+                            'stim_prob': int(100*stim_prob),
+                            'cue_on': cue_on,
+                            'cue_layer': cue_layer,
+                            'model': m,
+                            'layer': l+1,
+                            'fb21_scalar':fb21_scalar,
+                            'fb32_scalar':fb32_scalar,
+                            'AUC_exp': area_exp,
+                            'AUC_unexp': area_unexp,
+                            'delta_AUC': (area_exp)-(area_unexp),
+                            'eval_acc': mod_data['m_acc'][m],
+                            'stim_label': mod_data['stim_label'][m,:],
+                            'outputs': mod_data['outputs'][m,:]
+                            })
 
 # Close connections
 #sftp.close()
