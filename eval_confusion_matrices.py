@@ -96,12 +96,14 @@ for stim_prob in stim_probs:
                  sr_scram = np.array(sr_scram_list)
                 
                  # get labels
-                 y_true = mod_data['stim_label'][m_num, :]
-                 y_pred = mod_data['outputs'][m_num,:]
-                 
-                 # unscramble y_pred
+                 y_true = mod_data['stim_label'][m_num, stim_on,:].astype(int)
+                 y_out = mod_data['outputs'][m_num,:]                 
+                 y_pred = np.argmax(np.mean(y_out[stim_on:,:,:], axis = 0), axis = 1)
+                 cues = np.argmax(mod_data['cues'][100, :,:], axis = 1)
+                 # unscramble y_true
+                 y_unscrambled = np.full((batch_size), np.nan)
                  for trial in np.arange(batch_size):
-                     y_unscrambled = sr_scram[ mod_data['cues'][trial], y_pred[trial] ]
+                     y_true_unscrambled[trial] = sr_scram[ cues[trial], y_true[trial] ].astype(int)
                 
                  # Compute confusion matrix
                  cm = confusion_matrix(y_true, y_pred, labels=np.arange(6))
