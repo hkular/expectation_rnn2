@@ -67,7 +67,7 @@ def load_model_mps(fn):
     
     return model
 # eval a batch of trials with a trained model
-def eval_model( model, task, sr_scram ):
+def eval_model( model, task, sr_scram):
     
     if task.task == 'rdk_reproduction':
         # get a batch of inputs and targets

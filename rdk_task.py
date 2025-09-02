@@ -49,6 +49,10 @@ class RDKtask:
             self.num_cues = settings['num_cues']
             self.cue_on = settings['cue_on']
             self.cue_dur = settings['cue_dur']
+            
+        if settings['rand_seed_bool']:
+            self.rand_seed_bool = settings['rand_seed_bool']
+            self.seed = 42
 
     #---------------------------------------------------------------
     # rdk task
@@ -77,7 +81,10 @@ class RDKtask:
         # alloc storage for stim time series 'u' and stim identity on each trial
         # in this batch...u is a tensor, but stim_pres is ok as np array
         #u = torch.zeros( ( self.T,self.batch_size,self.n_afc ) ) 
-        
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
+                  
         # rand init...
         u = torch.randn( ( self.T,self.batch_size,self.n_afc ) ) * self.stim_noise
         
@@ -166,7 +173,9 @@ class RDKtask:
         # alloc storage for stim time series 'u' and stim identity on each trial
         # in this batch...u is a tensor, but stim_pres is ok as np array
         #u = torch.zeros( ( self.T,self.batch_size,self.n_afc ) ) 
-        
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
         # rand init...
         u = torch.randn( ( self.T,self.batch_size,self.n_afc ) ) * self.stim_noise
         
@@ -254,7 +263,9 @@ class RDKtask:
         # alloc storage for stim time series 'u' and stim identity on each trial
         # in this batch...u is a tensor, but stim_pres is ok as np array
         #u = torch.zeros( ( self.T,self.batch_size,self.n_afc ) ) 
-        
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
         # rand init...
         u = torch.randn( ( self.T,self.batch_size,self.n_afc ) ) * self.stim_noise  # stim
         s_label = np.zeros( ( self.batch_size,self.n_afc ) )
@@ -295,6 +306,10 @@ class RDKtask:
     #---------------------------------------------------------------    
     def gen_sr_scram( self ):
         
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
+            
         # for randomly scrambling the s->r mapping
         sr_scram = np.full( ( self.num_cues,self.n_afc ),np.nan )
         check_repeat = True
