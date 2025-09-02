@@ -39,7 +39,6 @@ int_noise_eval = 0.1
 stim_prob_eval = 1/n_afc
 T = 210
 num_cues = 2
-fb32_scalar = 1.0
 
 
 

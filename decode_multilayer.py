@@ -27,76 +27,76 @@ import argparse
 # setup argparser
 # #--------------------------
 parser = argparse.ArgumentParser(description='Analyze RNNs')
-# decoding params
-# parser.add_argument('--gpu', required=False,
-#         default='0', help="Which gpu?")
-# parser.add_argument('--device', required=False,
-#         default='cpu', help="gpu or cpu?")
-# parser.add_argument('--classes', required=False,
-#         default='stim', help="stim or choice or cue?")
-# parser.add_argument('--time_or_xgen', required=True,
-#                     type=int, help="time=0, xgen=1")
-# # model params
-# parser.add_argument('--task_type', required=False,type=str,
-#         default='rdk_repro_cue', help="Which task for train and eval?")
-# parser.add_argument('--T', required=False, type=int,
-#         default='210', help="How long is the trial?")
-# parser.add_argument('--cue_on', required=True, type=int,
-#         help="When does cue come on?")
-# parser.add_argument('--cue_layer', required=True, type=int,
-#         help="Which layer receives the cue?")
-# parser.add_argument('--n_afc', required=False,type=int,
-#         default=6,help="How many stimulus alternatives?")
-# parser.add_argument('--stim_prob_train', required=True,type=int,
-#         help="What stim prob during training?")
-# parser.add_argument('--stim_prob_eval', required=True,type=int,
-#         help="What stim prob during eval?")
-# parser.add_argument('--stim_noise_train', required=True,type=float,
-#         help="What stim noise during training?")
-# parser.add_argument('--stim_noise_eval', required=True,type=float,
-#         help="What stim noise during eval?")
-# parser.add_argument('--stim_amp_train', required=True,type=float,
-#         help="What stim amp during training?")
-# parser.add_argument('--stim_amp_eval', required=True,type=float,
-#         help="What stim amp during eval?")
-# parser.add_argument('--int_noise_train', required=False,type=float,
-#         default=0.1,help="What internal noise during training?")
-# parser.add_argument('--int_noise_eval', required=False,type=float,
-#         default=0.1, help="What internal noise during eval?")
-# parser.add_argument('--batch_size', required=False,type=int, default = 2000,
-#         help="How many trials to eval?")
-# parser.add_argument('--weighted_loss', required=False,type=int, default = 0,
-#         help="Weighted loss (1) or unweighted loss(0)?")
-# parser.add_argument('--fb21_scalar', required=False,type=float, default = 1.0,
-#         help="Feedback from layer 2 to 1 scalar?")
-# parser.add_argument('--fb32_scalar', required=False,type=float, default = 1.0,
-#         help="Feedback from layer 3 to 2 scalar?")
+decoding params
+parser.add_argument('--gpu', required=False,
+        default='0', help="Which gpu?")
+parser.add_argument('--device', required=False,
+        default='cpu', help="gpu or cpu?")
+parser.add_argument('--classes', required=False,
+        default='stim', help="stim or choice or cue?")
+parser.add_argument('--time_or_xgen', required=True,
+                    type=int, help="time=0, xgen=1")
+# model params
+parser.add_argument('--task_type', required=False,type=str,
+        default='rdk_repro_cue', help="Which task for train and eval?")
+parser.add_argument('--T', required=False, type=int,
+        default='210', help="How long is the trial?")
+parser.add_argument('--cue_on', required=True, type=int,
+        help="When does cue come on?")
+parser.add_argument('--cue_layer', required=True, type=int,
+        help="Which layer receives the cue?")
+parser.add_argument('--n_afc', required=False,type=int,
+        default=6,help="How many stimulus alternatives?")
+parser.add_argument('--stim_prob_train', required=True,type=int,
+        help="What stim prob during training?")
+parser.add_argument('--stim_prob_eval', required=True,type=int,
+        help="What stim prob during eval?")
+parser.add_argument('--stim_noise_train', required=True,type=float,
+        help="What stim noise during training?")
+parser.add_argument('--stim_noise_eval', required=True,type=float,
+        help="What stim noise during eval?")
+parser.add_argument('--stim_amp_train', required=True,type=float,
+        help="What stim amp during training?")
+parser.add_argument('--stim_amp_eval', required=True,type=float,
+        help="What stim amp during eval?")
+parser.add_argument('--int_noise_train', required=False,type=float,
+        default=0.1,help="What internal noise during training?")
+parser.add_argument('--int_noise_eval', required=False,type=float,
+        default=0.1, help="What internal noise during eval?")
+parser.add_argument('--batch_size', required=False,type=int, default = 2000,
+        help="How many trials to eval?")
+parser.add_argument('--weighted_loss', required=False,type=int, default = 0,
+        help="Weighted loss (1) or unweighted loss(0)?")
+parser.add_argument('--fb21_scalar', required=False,type=float, default = 1.0,
+        help="Feedback from layer 2 to 1 scalar?")
+parser.add_argument('--fb32_scalar', required=False,type=float, default = 1.0,
+        help="Feedback from layer 3 to 2 scalar?")
 
 
 args = parser.parse_args()
 
 # for debugging
-args.task_type = 'rdk_repro_cue'
-args.gpu = 1
-args.device = 'cpu'
-args.classes = 'cue'
-args.time_or_xgen = 0
-args.n_afc = 6
-args.T = 210
-args.cue_on = 75
-args.cue_layer = 3
-args.stim_prob_train = 1 / args.n_afc
-args.stim_prob_eval = 1 / args.n_afc
-args.stim_noise_train = 0.1
-args.stim_noise_eval = 0.1
-args.stim_amp_train = 1.0
-args.stim_amp_eval = 1.0
-args.int_noise_train = 0.1
-args.int_noise_eval = 0.1
-args.batch_size = 2000
-args.weighted_loss = 0
-args.fb21_scalar = 1.0
-args.fb32_scalar = 1.0
+# args.task_type = 'rdk_repro_cue'
+# args.gpu = 1
+# args.device = 'cpu'
+# args.classes = 'cue'
+# args.time_or_xgen = 0
+# args.n_afc = 6
+# args.T = 210
+# args.cue_on = 75
+# args.cue_layer = 3
+# args.stim_prob_train = 1 / args.n_afc
+# args.stim_prob_eval = 1 / args.n_afc
+# args.stim_noise_train = 0.1
+# args.stim_noise_eval = 0.1
+# args.stim_amp_train = 1.0
+# args.stim_amp_eval = 1.0
+# args.int_noise_train = 0.1
+# args.int_noise_eval = 0.1
+# args.batch_size = 2000
+# args.weighted_loss = 0
+# args.fb21_scalar = 1.0
+# args.fb32_scalar = 1.0
 
 
 #--------------------------
