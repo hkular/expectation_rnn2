@@ -249,7 +249,7 @@ for m_num in range( model_offset,model_offset+n_models ):
             # init dict of task related params  - init here because it contains train_amp
             settings = {'task' : task_type, 'n_afc' : n_afc, 'T' : T, 'stim_on' : stim_on, 'stim_dur' : stim_dur,
                         'stim_prob' : s_prob, 'stim_amp' : s_amp, 'stim_noise' : stim_noise, 'batch_size' : batch_size, 
-                        'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues': num_cues, 'cue_on' : cue_on, 'cue_dur' : cue_dur,}
+                        'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues': num_cues, 'cue_on' : cue_on, 'cue_dur' : cue_dur, 'rand_seed_bool':False}
             
             # create the task object
             task = RDKtask( settings )
