@@ -67,43 +67,53 @@ def load_model_mps(fn):
     
     return model
 # eval a batch of trials with a trained model
-def eval_model( model, task, sr_scram):
+def eval_model( model, task, sr_scram, equal_balance):
     
     if task.task == 'rdk_reproduction':
         # get a batch of inputs and targets
-        inputs,s_label = task.generate_rdk_reproduction_stim()  
+        if equal_balance:
+            inputs,s_label = task.generate_rdk_reproduction_stim_balanced()
+        else:
+            inputs,s_label = task.generate_rdk_reproduction_stim()
+        #np.unique(s_label.astype(int), return_counts=True)
         
         #inputs = inputs.cpu()
         targets = task.generate_rdk_reproduction_target( s_label )
-    
+        cues = np.zeros( (task.T, task.batch_size, task.n_afc) )
         # pass inputs...get outputs and hidden layer states if 
         # desired
         with torch.no_grad():
-            outputs,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3 = model( inputs )
+            outputs,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3 = model( inputs,cues )
         
         # compute eval acc
         m_acc,tbt_acc = task.compute_acc_reproduction( outputs,s_label ) 
 
     elif task.task == 'rdk':
         
-        # get a batch of inputs and targets
-        inputs,s_label = task.generate_rdk_stim()  
+        if equal_balance:
+            inputs,s_label = task.generate_rdk_stim_balanced()  
+        else:
+            # get a batch of inputs and targets
+            inputs,s_label = task.generate_rdk_stim()  
         
         #inputs = inputs.cpu()
         targets = task.generate_rdk_target( s_label )
-    
+        cues = np.zeros( (task.T, task.batch_size, task.n_afc) )
         # pass inputs...get outputs and hidden layer states if 
         # desired
         with torch.no_grad():
-            outputs,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3 = model( inputs )
+            outputs,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3 = model( inputs,cues )
         
         # compute eval acc
         m_acc,tbt_acc = task.compute_acc(outputs,s_label)
         
     elif task.task == 'rdk_repro_cue':
         
-        # get a batch of inputs and targets
-        inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim()
+        if equal_balance:
+            inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim_balanced()
+        else:
+            # get a batch of inputs and targets
+            inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim()
         
         # plot inputs
         #plt.plot(inputs[:,0,:])

@@ -39,35 +39,36 @@ hex_c = ['#06D2AC',  # aqua green
 #--------------------------
 # Basic model params
 #--------------------------
-device = 'cpu'                    # device to use for loading/eval model
-task_type = 'rdk_repro_cue'       # task type (conceptually think of as a motion discrimination task...)         
-n_afc = 6                         # number of stimulus alternatives
+device = 'cpu'                   # device to use for loading/eval model
+task_type = 'rdk_repro_cue'      # task type (conceptually think of as a motion discrimination task...)         
+n_afc = 6                        # number of stimulus alternatives
 T = 210                          # timesteps in each trial
-stim_on = 50                      # timestep of stimulus onset
-stim_dur = 25                     # stim duration
-stim_prob_train = 0.7                  # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
-stim_prob_eval = 1/n_afc     # eval the model at this prob level
+stim_on = 50                     # timestep of stimulus onset
+stim_dur = 25                    # stim duration
+stim_prob_train = 0.7             # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+stim_prob_eval = 1/n_afc         # eval the model at this prob level
 stim_amp_train = 1.0             # stim amplitude during training
-stim_amp_eval = 1.0                   # stim amplitude during eval
+stim_amp_eval = 1.0              # stim amplitude during eval
 stim_noise_train = 0.1           # external stim noise during training  
-stim_noise_eval = 0.8     # magnitude of randn background noise in the stim channel for eval
-int_noise_train = 0.1
-int_noise_eval = 0.1
-batch_size = 2000                 # number of trials in each batch
+stim_noise_eval = 0.6            # magnitude of randn background noise in the stim channel for eval
+int_noise_train = 0.1            # what noise is internal   
+int_noise_eval = 0.1             # can eval with noisier
+batch_size = 2400                 # number of trials in each batch, must be divisible by n_afc if want to force equal balance
 acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_thresh during target window is correct
 weighted_loss = 0                 #  0 = nw_mse l2 or 1 = weighted mse
 noise_internal = 0.1              # trained under 0.1 try 0.25 
 num_cues = 2                      # how many s->r cues
-cue_on = 0        # cue comes on after stim goes off
+cue_on = 75                        # cue comes on after stim goes off or at start
 cue_dur = T-cue_on                # cue stays on until the end
-plots = True
+plots = False
 cue_layer = 3
 rand_seed_bool = True
+equal_balance = True
 if task_type == 'rdk':
     fn_stem = 'trained_models_rdk/gonogo_'
     out_size = 1
 elif task_type == 'rdk_reproduction':
-    fn_stem = 'trained_models_rdk_reproduction/repro_'
+    fn_stem = f'trained_models_rdk_reproduction/timing_{T}/repro_'
     out_size = n_afc  
 elif task_type == 'rdk_repro_cue':
     fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
@@ -105,7 +106,7 @@ task = RDKtask( settings )
 #--------------------------
 # How many trained models in this cond
 #--------------------------
-n_models = 1#count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, weighted_loss, task_type, fn_stem, directory = os.getcwd())
+n_models = 3#count_models(n_afc, stim_prob, stim_amps_train, stim_noise_train, weighted_loss, task_type, fn_stem, directory = os.getcwd())
 
 # fn out for npz file to store decoding data
 #fn_out = f'{fn_stem}_decode_n_afc-{n_afc}_stim_noise-{stim_noise_train}_trnamp-{da}_evalamp-{ea}_distype-{stim_dis_weights}_ff-{ffa}_fb-{fba}_inh_kappa-{ring_w_kappa_inh}_cue_on-{cue_on}_h1_L2-{h1_lam_l2}_h2_L2-{h2_lam_l2}_ST-{sparse_type}_fb_on-{fb_on}_stim_noise_eval-{stim_noise_eval}_internal_noise-{internal_noise_eval}.npz'
@@ -152,6 +153,7 @@ for m_num in np.arange( n_models ):
         sr_scram = np.array(sr_scram_list)
     else:
         sr_scram = []
+        
     
     # update internal noise
     net.recurrent_layer.noise = int_noise_eval
@@ -161,8 +163,11 @@ for m_num in np.arange( n_models ):
         net.recurrent_layer.h_layer3.wfb_32.mul_(fb32_scalar)
 
     # eval a batch of trials using the trained model
-    outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc,cues = eval_model( net, task, sr_scram )
-    s_label_int = np.argmax(s_label, axis=1)
+    outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc,cues = eval_model( net, task, sr_scram, equal_balance )
+    if task_type == 'rdk_repro_cue':
+        s_label_int = np.argmax(s_label, axis=1)
+    else:
+        s_label_int = s_label.astype(int)
     
     if plots:
         # quick plots - first expected, correct and incorrect trials

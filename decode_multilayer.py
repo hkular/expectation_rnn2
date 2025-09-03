@@ -41,12 +41,12 @@ parser.add_argument('--task_type', required=False,type=str,
         default='rdk_repro_cue', help="Which task for train and eval?")
 parser.add_argument('--T', required=False, type=int,
         default='210', help="How long is the trial?")
-parser.add_argument('--cue_on', required=True, type=int,
-        help="When does cue come on?")
-parser.add_argument('--cue_layer', required=True, type=int,
-        help="Which layer receives the cue?")
+parser.add_argument('--cue_on', required=False, type=int,
+        default = '0',help="When does cue come on?")
+parser.add_argument('--cue_layer', required=False, type=int,
+        default = '3',help="Which layer receives the cue?")
 parser.add_argument('--n_afc', required=False,type=int,
-        default=6,help="How many stimulus alternatives?")
+        default='6',help="How many stimulus alternatives?")
 parser.add_argument('--stim_prob_train', required=True,type=int,
         help="What stim prob during training?")
 parser.add_argument('--stim_prob_eval', required=True,type=int,
@@ -63,13 +63,13 @@ parser.add_argument('--int_noise_train', required=False,type=float,
         default=0.1,help="What internal noise during training?")
 parser.add_argument('--int_noise_eval', required=False,type=float,
         default=0.1, help="What internal noise during eval?")
-parser.add_argument('--batch_size', required=False,type=int, default = 2000,
+parser.add_argument('--batch_size', required=False,type=int, default = '2000',
         help="How many trials to eval?")
-parser.add_argument('--weighted_loss', required=False,type=int, default = 0,
+parser.add_argument('--weighted_loss', required=False,type=int, default = '0',
         help="Weighted loss (1) or unweighted loss(0)?")
-parser.add_argument('--fb21_scalar', required=False,type=float, default = 1.0,
+parser.add_argument('--fb21_scalar', required=False,type=float, default = '1.0',
         help="Feedback from layer 2 to 1 scalar?")
-parser.add_argument('--fb32_scalar', required=False,type=float, default = 1.0,
+parser.add_argument('--fb32_scalar', required=False,type=float, default = '1.0',
         help="Feedback from layer 3 to 2 scalar?")
 
 
@@ -135,12 +135,12 @@ h_size = 200                                        # how many units in a hidden
 plots = False                                       # only plot if not run through terminal
 iters = 200000                                      # cut off during training
 rand_seed_bool = True                               # do we want eval trials to be reproducible
-
+equal_balance = True                                # do we want the same number of trials per stim
 if task_type == 'rdk':
     fn_stem = 'trained_models_rdk/gonogo_'
     out_size = 1
 elif task_type == 'rdk_reproduction':
-    fn_stem = 'trained_models_rdk_reproduction/repro_'
+    fn_stem = f'trained_models_rdk_reproduction/timing_{T}/repro_'
     out_size = n_afc  
 elif task_type == 'rdk_repro_cue':
     fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
@@ -186,23 +186,19 @@ n_layers = 3
 m_acc = np.full((n_models), np.nan)
 outputs = np.full((n_models,T, batch_size, n_afc), np.nan)
 s_labels = np.full((n_models,T, batch_size), np.nan)
-cues_int = np.full((n_models, batch_size), np.nan)
 tbt_acc = np.full((n_models,batch_size), np.nan)
+cues_int = np.full((n_models, batch_size), np.nan)
 if time_or_xgen == 0:
     over_acc = np.full( ( n_models,n_layers,T//w_size ),np.nan )
-    if classes == 'cue':
-        stim_acc = np.full( ( n_models,n_layers,num_cues,T//w_size ),np.nan )
-    else:
-        stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size ),np.nan )
+    stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size ),np.nan )
 else:
     over_acc = np.full( ( n_models,n_layers,T//w_size,T//w_size ),np.nan )
-    if classes == 'cue':
-        stim_acc = np.full( ( n_models,n_layers,num_cues,T//w_size,T//w_size ),np.nan )
-    else:
-        stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size,T//w_size ),np.nan )
+    stim_acc = np.full( ( n_models,n_layers,n_afc,T//w_size,T//w_size ),np.nan )
+        
+        
       
 # to store indices of exc and inh units and taus...
-params_dict = {}
+#params_dict = {}
 
 for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
     
@@ -217,13 +213,20 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
             fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'  
     
     # fn out for npz file to store decoding data
-    if time_or_xgen == 0:
-        fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-    else:
-        fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+    if task_type == 'rdk_reproduction':
+        if time_or_xgen == 0:
+            fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+        else:
+            fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+
+    elif task_type == 'rdk_repro_cue':
+        if time_or_xgen == 0:
+            fn_out = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob_train * 100)}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+        else:
+            fn_out = f'decode_data/{task_type}_xgen_{classes}_{n_afc}nafc_stim_prob{int(stim_prob_train * 100)}_stim_prob_eval-{int(stim_prob_eval * 100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
 
     # init dicts to store exc,inh indicies
-    params_dict[ m_idx ] = {}
+    #params_dict[ m_idx ] = {}
     
     # load the trained model, set to eval, requires_grad == False
     if device == 'cpu':
@@ -257,22 +260,22 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
             net.recurrent_layer.h_layer3.wfb_32.mul_(fb32_scalar)
     
         # eval a batch of trials using the trained model
-        outputs[m_idx,:],s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc[m_idx],tbt_acc[m_idx,:],cues = eval_model( net, task, sr_scram )
+        outputs[m_idx,:],s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc[m_idx],tbt_acc[m_idx,:],cues = eval_model( net, task, sr_scram, equal_balance )
         # s_label is a diff shape for cue version, deal with if statement later
         s_label_int = np.argmax(s_label, axis=1)
         s_labels[m_idx,:] = s_label_int
         cues_int[m_idx,:] = np.argmax(cues[100,:,:].cpu().detach().numpy(), axis =1) # at t=100 cue should be on in all conditions change if we do early cue offset
     
         # store indices
-        params_dict[ m_idx ]['exc1'] = exc1
-        params_dict[ m_idx ]['exc2'] = exc2
-        params_dict[ m_idx ]['exc3'] = exc3
-        params_dict[ m_idx ]['inh1'] = inh1
-        params_dict[ m_idx ]['inh2'] = inh2
-        params_dict[ m_idx ]['inh3'] = inh3
-        params_dict[ m_idx ]['tau1'] = tau1
-        params_dict[ m_idx ]['tau2'] = tau2
-        params_dict[ m_idx ]['tau3'] = tau3
+        # params_dict[ m_idx ]['exc1'] = exc1
+        # params_dict[ m_idx ]['exc2'] = exc2
+        # params_dict[ m_idx ]['exc3'] = exc3
+        # params_dict[ m_idx ]['inh1'] = inh1
+        # params_dict[ m_idx ]['inh2'] = inh2
+        # params_dict[ m_idx ]['inh3'] = inh3
+        # params_dict[ m_idx ]['tau1'] = tau1
+        # params_dict[ m_idx ]['tau2'] = tau2
+        # params_dict[ m_idx ]['tau3'] = tau3
     
         #  decoding
         layer_data = [h1, h2, h3]
@@ -280,16 +283,10 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
             
             if time_or_xgen == 0:
                 tmp_over_acc = np.full((n_cvs,T//w_size),np.nan)
-                if classes == 'cue': 
-                    tmp_stim_acc = np.full((n_cvs,num_cues,T//w_size),np.nan)
-                else:
-                    tmp_stim_acc = np.full((n_cvs,n_afc,T//w_size),np.nan)
+                tmp_stim_acc = np.full((n_cvs,n_afc,T//w_size),np.nan)
             else:
                 tmp_over_acc = np.full((n_cvs,T//w_size,T//w_size),np.nan)
-                if classes == 'cue': 
-                    tmp_stim_acc = np.full((n_cvs,num_cues,T//w_size,T//w_size),np.nan)
-                else:
-                    tmp_stim_acc = np.full((n_cvs,n_afc,T//w_size,T//w_size),np.nan)
+                tmp_stim_acc = np.full((n_cvs,n_afc,T//w_size,T//w_size),np.nan)
             
             
             for cv in range( n_cvs ):
@@ -301,8 +298,6 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
                     # Step 2: Decode the choice (argmax across stimulus channels)
                     choice_labels = np.argmax(mean_outputs, axis=1)  # shape: (n_trials,)
                     tmp_over_acc[cv,:], tmp_stim_acc[cv,:,:] = decode_ls_svm(layer_data[l_num], s_label_int, n_afc, w_size, time_or_xgen, trn_prcnt)
-                elif classes == 'cue':
-                    tmp_over_acc[cv,:], tmp_stim_acc[cv,:,:] = decode_ls_svm(layer_data[l_num], cues_int[m_idx,:], num_cues, w_size, time_or_xgen, trn_prcnt)
             # average over cvs
             over_acc[m_num,l_num,:] = np.mean(tmp_over_acc,axis=0)
             stim_acc[m_num,l_num,:,:] = np.mean(tmp_stim_acc,axis=0)
@@ -311,8 +306,8 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
 # save out the data across models
 np.savez( fn_out,n_tmpts=T,m_acc=m_acc,
          over_acc=over_acc,stim_acc=stim_acc,stim_label=s_labels,outputs=outputs,
-         cues=cues_int,tbt_acc=tbt_acc,
-         params_dict=params_dict ) # h1=h1,h2=h2,h3=h3, exclude for now too big
+         cues=cues_int,tbt_acc=tbt_acc
+          ) # params_dict=params_dict h1=h1,h2=h2,h3=h3, exclude for now too big
  
 if plots:
     

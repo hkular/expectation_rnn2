@@ -112,6 +112,55 @@ class RDKtask:
         return u, s_label
     
     #---------------------------------------------------------------
+    # rdk task balanced
+    #---------------------------------------------------------------
+    def generate_rdk_stim_balanced(self):
+        """
+        Generate the [time x trials in batch] input stimulus matrix 
+        for the "rdk" motion discrimination task - but exactly equal trial nums
+    
+        INPUT
+            settings: dict containing the following keys
+                n_afc: how many stim alternatives
+                T: duration of a single trial (in steps)
+                stim_on: stimulus starting time (in steps)
+                stim_dur: stimulus duration (in steps)
+                stim_prob: probability of stim 1 ( and all other options are (1-stim_prob))/(n_afc-1) ) 
+                stim_amp: amp of stimulus (to mimic changing motion coherence)
+                batch_size: number of trials to generate for each batch
+                
+        OUTPUT
+            u: T x batch_size x n_afc matrix
+            s_label: batch_size vector labeling stim on each trial
+        
+        """
+        if np.mod(self.batch_size/self.n_afc) != 0:
+            raise ValueError("batch_size must be divisible by n_afc for balanced trial generation")
+
+        # optionally seed    
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
+                  
+        # rand init...
+        u = torch.randn( ( self.T,self.batch_size,self.n_afc ) ) * self.stim_noise
+        s_label = np.full( self.batch_size,np.nan )        
+        
+        # how many per class
+        per_class = self.batch_size // self.n_afc
+        labels = np.repeat(np.arange(self.n_afc), per_class)
+        # shuffle trial order
+        np.random.shuffle(labels)
+             
+        # generate all trials in this batch
+        for nt,ind in enumerate(labels):    
+            
+            u[self.stim_on:(self.stim_on + self.stim_dur), nt, ind] += self.stim_amp
+            s_label[nt] = ind
+            
+        return u, s_label
+    
+    #---------------------------------------------------------------
     # target timeseries 
     #---------------------------------------------------------------
     def generate_rdk_target(self, s_label):
@@ -201,6 +250,55 @@ class RDKtask:
                 s_label[nt] = ind
                      
         return u, s_label
+    
+    #---------------------------------------------------------------
+    # rdk task - reproduction balanced
+    #---------------------------------------------------------------
+    def generate_rdk_reproduction_stim_balanced(self):
+        """
+        Generate the [time x trials in batch] input stimulus matrix 
+        for the "rdk" motion discrimination task - balanced number of trials
+    
+        INPUT
+            settings: dict containing the following keys
+                n_afc: how many stim alternatives
+                T: duration of a single trial (in steps)
+                stim_on: stimulus starting time (in steps)
+                stim_dur: stimulus duration (in steps)
+                stim_prob: probability of stim 1 ( and all other options are (1-stim_prob))/(n_afc-1) ) 
+                stim_amp: amp of stimulus (to mimic changing motion coherence)
+                batch_size: number of trials to generate for each batch
+                
+        OUTPUT
+            u: T x batch_size x n_afc matrix
+            s_label: batch_size vector labeling stim on each trial
+        
+        """
+        if self.batch_size % self.n_afc != 0:
+            raise ValueError("batch_size must be divisible by n_afc for balanced trial generation")
+
+        # optionally seed
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
+            
+        # rand init...
+        u = torch.randn( ( self.T,self.batch_size,self.n_afc ) ) * self.stim_noise
+        s_label = np.full( self.batch_size,np.nan )        
+        
+        # how many per class
+        per_class = self.batch_size // self.n_afc
+        labels = np.repeat(np.arange(self.n_afc), per_class)
+        # shuffle trial order
+        np.random.shuffle(labels)
+        # generate all trials in this batch
+        for nt, ind in enumerate(labels):   
+
+            u[self.stim_on:(self.stim_on + self.stim_dur), nt, ind] += self.stim_amp
+            s_label[nt] = ind
+                     
+        return u, s_label
+    
     
     #---------------------------------------------------------------
     # target timeseries for basic reproduction task
@@ -297,6 +395,66 @@ class RDKtask:
                 u[ self.stim_on:(self.stim_on+self.stim_dur),nt,ind ] += self.stim_amp
                 s_label[nt,ind] = 1
                 
+                     
+        return u, c, s_label, c_label.astype(int)
+    
+    
+    #---------------------------------------------------------------
+    # rdk task - reproduction w cue balanced
+    #---------------------------------------------------------------
+    def generate_rdk_reproduction_cue_stim_balanced(self):
+        """
+        Generate the [time x trials in batch] input stimulus matrix 
+        for the "rdk" motion discrimination task
+    
+        INPUT
+            settings: dict containing the following keys
+                n_afc: how many stim alternatives
+                T: duration of a single trial (in steps)
+                stim_on: stimulus starting time (in steps)
+                stim_dur: stimulus duration (in steps)
+                stim_prob: probability of stim 1 ( and all other options are (1-stim_prob))/(n_afc-1) ) 
+                stim_amp: amp of stimulus (to mimic changing motion coherence)
+                batch_size: number of trials to generate for each batch
+                
+        OUTPUT
+            u: T x batch_size x n_afc matrix
+            s_label: batch_size vector labeling stim on each trial
+            c_label: T x batch_size x n_afc matrix
+        
+        """
+        
+        if self.batch_size % self.n_afc != 0:
+            raise ValueError("batch_size must be divisible by n_afc for balanced trial generation")
+
+        # optionally seed
+        if self.rand_seed_bool:
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
+        
+        # rand init...
+        u = torch.randn( ( self.T,self.batch_size,self.n_afc ) ) * self.stim_noise  # stim
+        s_label = np.zeros( ( self.batch_size,self.n_afc ) )
+        c = torch.zeros( ( self.T,self.batch_size,self.num_cues ) )                    # cue 
+        c_label = np.zeros( self.batch_size )
+      
+        # how many per class
+        per_class = self.batch_size // self.n_afc
+        labels = np.repeat(np.arange(self.n_afc), per_class)
+    
+        # shuffle trial order
+        np.random.shuffle(labels)
+        
+        # generate all trials in this batch
+        for nt,ind in enumerate(labels):    
+
+            # make the s->r mapping cue
+            cue_ind = np.random.choice( np.arange( 0, self.num_cues ) )
+            c[ self.cue_on:(self.cue_on+self.cue_dur),nt,cue_ind ] = 1              
+            c_label[ nt ] = cue_ind
+            u[self.stim_on:(self.stim_on + self.stim_dur), nt, ind] += self.stim_amp
+            s_label[nt,ind] = 1
+
                      
         return u, c, s_label, c_label.astype(int)
     
