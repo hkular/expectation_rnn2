@@ -49,9 +49,8 @@ class RDKtask:
             self.num_cues = settings['num_cues']
             self.cue_on = settings['cue_on']
             self.cue_dur = settings['cue_dur']
-            
-        if settings['rand_seed_bool']:
-            self.rand_seed_bool = settings['rand_seed_bool']
+        self.rand_seed_bool = settings['rand_seed_bool']    
+        if settings['rand_seed_bool']:   
             self.seed = 42
 
     #---------------------------------------------------------------
