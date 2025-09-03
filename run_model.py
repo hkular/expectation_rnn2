@@ -38,7 +38,7 @@ parser.add_argument('--int_noise', required=True,type=float, default='0.1',
         help="What additive (internal) noise do you want?")
 parser.add_argument('--ext_noise', required=True,type=float, default='0.1',
         help="What stim (external) noise do you want?")
-parser.add_argument('--n_cues', required=True,type=int, default='2',
+parser.add_argument('--n_cues', required=False,type=int, default='2',
         help="Number of s->r cues?")
 parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
     help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
