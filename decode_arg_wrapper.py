@@ -11,22 +11,7 @@ import itertools
 import os
 
 
-# Fixed args for every run
-base_cmd = [
-    "python", "decode_multilayer.py",
-    "--gpu", "1",
-    "--device", "gpu",
-    "--classes", "stim",
-    "--stim_noise_train", "0.1",
-    "--stim_amp_train", "1.0",
-    "--stim_amp_eval", "1.0",
-    "--int_noise_train", "0.1",
-    "--int_noise_eval", "0.1",
-    "--cue_layer", "3",
-
-]
-
-task_type = 'rdk_repro_cue'
+task_type = 'rdk_reproduction'
 classes = 'stim'
 n_afc = 6
 stim_amp_train = 1.0
@@ -38,6 +23,7 @@ stim_prob_eval = 1/n_afc
 T = 210
 num_cues = 2
 cue_layer = 3
+gpu = 1
 
 
 # Varying args
@@ -47,7 +33,23 @@ stim_prob_vals = [16,70]
 fb21_scalar_vals = [1.0, 0.7]
 fb32_scalar_vals= [1.0, 0.7]
 cue_on_vals = [0, 75]
-    
+
+# Fixed args for every run
+base_cmd = [
+    "python", "decode_multilayer.py",
+    "--gpu", str(gpu),
+    "--device", "gpu",
+    "--classes", str(classes),
+    "--task_type", str(task_type),
+    "--stim_noise_train", str(stim_noise_train),
+    "--stim_amp_train", str(stim_amp_train),
+    "--stim_amp_eval", str(stim_amp_eval),
+    "--int_noise_train", str(int_noise_train),
+    "--int_noise_eval", str(int_noise_eval),
+    "--cue_layer", str(cue_layer),
+
+]
+  
 
 # Loop over all combinations
 for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar, stim_noise_eval in itertools.product(
