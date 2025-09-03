@@ -18,7 +18,6 @@ base_cmd = [
     "--device", "gpu",
     "--classes", "stim",
     "--stim_noise_train", "0.1",
-    "--stim_noise_eval", "0.1",
     "--stim_amp_train", "1.0",
     "--stim_amp_eval", "1.0",
     "--int_noise_train", "0.1",
@@ -33,27 +32,25 @@ n_afc = 6
 stim_amp_train = 1.0
 stim_amp_eval = stim_amp_train
 stim_noise_train = 0.1
-stim_noise_eval = stim_noise_train
 int_noise_train = 0.1
 int_noise_eval = 0.1
 stim_prob_eval = 1/n_afc
 T = 210
 num_cues = 2
-
+cue_layer = 3
 
 
 # Varying args
 time_or_xgen_vals = [0]
 cue_on_vals = [0, 75]
-#cue_layer_vals = [3]
-cue_layer = 3
+stim_noise_evals = [0.6]
 stim_prob_vals = [16,70]  
-fb21_scalar_vals = [1.0, 0.7, 0.3]
-fb32_scalar_vals= [1.0, 0.7, 0.3]
+fb21_scalar_vals = [1.0, 0.7]
+fb32_scalar_vals= [1.0, 0.7]
 
 # Loop over all combinations
-for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.product(
-    time_or_xgen_vals, cue_on_vals, stim_prob_vals, fb21_scalar_vals, fb32_scalar_vals
+for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar, stim_noise_eval in itertools.product(
+    time_or_xgen_vals, cue_on_vals, stim_prob_vals, fb21_scalar_vals, fb32_scalar_vals, stim_noise_evals
 ):
     # fn out for npz file to store decoding data
     if time_or_xgen == 0:
@@ -73,7 +70,8 @@ for time_or_xgen, cue_on, stim_prob, fb21_scalar, fb32_scalar in itertools.produ
             "--stim_prob_train", str(stim_prob),
             "--stim_prob_eval", str(int(stim_prob_eval*100)),
             "--fb21_scalar", str(fb21_scalar),
-            "--fb32_scalar", str(fb32_scalar)
+            "--fb32_scalar", str(fb32_scalar),
+            "--stim_noise_eval", str(stim_noise_eval)
         ]
     
         print(f"Running: {' '.join(cmd)}")
