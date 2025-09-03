@@ -351,7 +351,7 @@ for m_num in range( model_offset,model_offset+n_models ):
                         running_acc /= loss_update_step
                         
                         # print out to monitor training
-                        if task_type == 'rdk_repro':
+                        if task_type == 'rdk_reproduction':
                             print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}') 
                         elif task_type == 'rdk_repro_cue':
                             print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, cue_on {cue_on}, cue_layer {cue_layer_num}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}')
