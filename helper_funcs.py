@@ -67,7 +67,7 @@ def load_model_mps(fn):
     
     return model
 # eval a batch of trials with a trained model
-def eval_model( model, task, sr_scram, equal_balance):
+def eval_model_full( model, task, sr_scram, equal_balance):
     
     if task.task == 'rdk_reproduction':
         # get a batch of inputs and targets
@@ -160,6 +160,81 @@ def eval_model( model, task, sr_scram, equal_balance):
     inh3 = np.where( np.sum( w3, axis =0 )< 0 )[0]  
 
     return outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau1,tau3,m_acc,tbt_acc,cues
+
+def eval_model_light( model, task, sr_scram, equal_balance):
+    
+    if task.task == 'rdk_reproduction':
+        # get a batch of inputs and targets
+        if equal_balance:
+            inputs,s_label = task.generate_rdk_reproduction_stim_balanced()
+        else:
+            inputs,s_label = task.generate_rdk_reproduction_stim()
+        #np.unique(s_label.astype(int), return_counts=True)
+        
+        #inputs = inputs.cpu()
+        targets = task.generate_rdk_reproduction_target( s_label )
+        cues = np.zeros( (task.T, task.batch_size, task.n_afc) )
+        # pass inputs...get outputs and hidden layer states if 
+        # desired
+        with torch.no_grad():
+            outputs,h1,h2,h3,_,_,_,_,_,_,_ = model( inputs,cues )
+        
+        # compute eval acc
+        m_acc,tbt_acc = task.compute_acc_reproduction( outputs,s_label ) 
+
+    elif task.task == 'rdk':
+        
+        if equal_balance:
+            inputs,s_label = task.generate_rdk_stim_balanced()  
+        else:
+            # get a batch of inputs and targets
+            inputs,s_label = task.generate_rdk_stim()  
+        
+        #inputs = inputs.cpu()
+        targets = task.generate_rdk_target( s_label )
+        cues = np.zeros( (task.T, task.batch_size, task.n_afc) )
+        # pass inputs...get outputs and hidden layer states if 
+        # desired
+        with torch.no_grad():
+            outputs,h1,h2,h3,_,_,_,_,_,_,_ = model( inputs,cues )
+        
+        # compute eval acc
+        m_acc,tbt_acc = task.compute_acc(outputs,s_label)
+        
+    elif task.task == 'rdk_repro_cue':
+        
+        if equal_balance:
+            inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim_balanced()
+        else:
+            # get a batch of inputs and targets
+            inputs,cues,s_label,c_label = task.generate_rdk_reproduction_cue_stim()
+        
+        # plot inputs
+        #plt.plot(inputs[:,0,:])
+        #plt.axvline(100, color='black', linestyle='--', linewidth=2, label='Cue onset')
+    
+             
+        targets = task.generate_rdk_reproduction_cue_target( s_label, sr_scram, c_label )
+    
+        # pass inputs...get outputs and hidden layer states if 
+        # desired
+        with torch.no_grad():
+            outputs,h1,h2,h3,_,_,_,_,_,_,_ = model( inputs,cues )
+        
+        # compute eval acc
+        m_acc,tbt_acc = task.compute_acc_reproduction_cue(outputs,s_label,targets) 
+    
+    print(f'Eval Accuracy: {m_acc}')
+    
+    # detach tensors
+    inputs = inputs.cpu().detach().numpy()
+    outputs = outputs.cpu().detach().numpy()
+    h1 = h1.cpu().detach().numpy()
+    h2 = h2.cpu().detach().numpy()
+    h3 = h3.cpu().detach().numpy()
+    
+    return outputs,s_label,h1,h2,h3,m_acc,tbt_acc,cues
+
 
 from cue_layer import *
 from inp_layer import *

@@ -260,7 +260,7 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
             net.recurrent_layer.h_layer3.wfb_32.mul_(fb32_scalar)
     
         # eval a batch of trials using the trained model
-        outputs[m_idx,:],s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc[m_idx],tbt_acc[m_idx,:],cues = eval_model( net, task, sr_scram, equal_balance )
+        outputs[m_idx,:],s_label,h1,h2,h3,m_acc[m_idx],tbt_acc[m_idx,:],cues = eval_model_light( net, task, sr_scram, equal_balance )
         # s_label is a diff shape for cue version, deal with if statement later
         s_label_int = np.argmax(s_label, axis=1)
         s_labels[m_idx,:] = s_label_int
