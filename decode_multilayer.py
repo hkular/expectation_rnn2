@@ -63,7 +63,7 @@ parser.add_argument('--int_noise_train', required=False,type=float,
         default=0.1,help="What internal noise during training?")
 parser.add_argument('--int_noise_eval', required=False,type=float,
         default=0.1, help="What internal noise during eval?")
-parser.add_argument('--batch_size', required=False,type=int, default = '2000',
+parser.add_argument('--batch_size', required=False,type=int, default = '2400',
         help="How many trials to eval?")
 parser.add_argument('--weighted_loss', required=False,type=int, default = '0',
         help="Weighted loss (1) or unweighted loss(0)?")
