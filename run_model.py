@@ -44,9 +44,9 @@ parser.add_argument('--stim_amps', nargs='+', type=float, default=[1.0],
     help='List of stimulus amplitudes (e.g., --stim_amps 0.6 1.0)')
 parser.add_argument('--stim_prob_mode', type=str, default='biased',
     help='Stimulus probability(e.g., biased or unbiased or both)')
-parser.add_argument('--cue_onset', required = True, type=int,
+parser.add_argument('--cue_onset', required = False, type=int, default = '0',
     help='When does the cue come on (75 or 0)?')
-parser.add_argument('--cue_layer_num', required = True, type =int, default = '0',
+parser.add_argument('--cue_layer_num', required = False, type =int, default = '0',
     help='Which layer receives cue (1,2,3)?')
 args = parser.parse_args()
 
@@ -351,7 +351,10 @@ for m_num in range( model_offset,model_offset+n_models ):
                         running_acc /= loss_update_step
                         
                         # print out to monitor training
-                        print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, cue_on {cue_on}, cue_layer {cue_layer_num}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}')
+                        if task_type == 'repro':
+                            print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}') 
+                        elif task_type == 'repro_cue':
+                            print(f'Task {task_type}, mod_num {m_num}, num_afc {n_afc}, stim_prob {out_stim_prob}, stim_amp {out_stim_amp}, stim_noise {out_stim_noise}, cue_on {cue_on}, cue_layer {cue_layer_num}, Step {i+1}, Loss {running_loss:0.4f}, Acc {running_acc:0.4f}')
                 
                         # see if we've reached criteria to stop training
                         if (running_loss < loss_crit) | (running_acc > acc_crit):
