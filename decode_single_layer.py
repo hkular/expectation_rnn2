@@ -45,31 +45,36 @@ n_afc = 6                         # number of stimulus alternatives
 T = 210                          # timesteps in each trial
 stim_on = 50                      # timestep of stimulus onset
 stim_dur = 25                     # stim duration
-stim_prob = 0.7                  # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
-stim_prob_to_eval = stim_prob     # eval the model at this prob level
-stim_amps_train = 1.0             # stim amplitude during training
-stim_amps = 1.0                   # stim amplitude during eval
-stim_noise_train = 0.6           # external stim noise during training  
-stim_noise = stim_noise_train     # magnitude of randn background noise in the stim channel for eval
+stim_prob_train = 0.7                  # during training probability of stim 1, with probability of (1-stim_prob)/(n_afc-1) for all other options
+stim_prob_eval = 1/n_afc     # eval the model at this prob level
+stim_amp_train = 1.0             # stim amplitude during training
+stim_amp_eval = 1.0                   # stim amplitude during eval
+stim_noise_train = 0.1           # external stim noise during training  
+stim_noise_eval = 0.8     # magnitude of randn background noise in the stim channel for eval
+int_noise_train = 0.1
+int_noise_eval = 0.1
 batch_size = 2000                 # number of trials in each batch
 acc_amp_thresh = 0.8              # to determine acc of model output: > acc_amp_thresh during target window is correct
 weighted_loss = 0                 #  0 = nw_mse l2 or 1 = weighted mse
 noise_internal = 0.1              # trained under 0.1 try 0.25 
 num_cues = 2                      # how many s->r cues
-cue_on = 75        # cue comes on after stim goes off
+cue_on = 0        # cue comes on after stim goes off
 cue_dur = T-cue_on                # cue stays on until the end
-out_size = n_afc                  # n_afc outputs in reproduction task
-fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer3/reprocue_'
-plots = False
-
-# if torch.backends.mps.is_available():
-#     mps_device = torch.device("mps")
-#     x = torch.ones(1, device=mps_device)
-#     print (x)
-# else:
-#     print ("MPS device not found.")
-    
-
+plots = True
+cue_layer = 3
+rand_seed_bool = True
+if task_type == 'rdk':
+    fn_stem = 'trained_models_rdk/gonogo_'
+    out_size = 1
+elif task_type == 'rdk_reproduction':
+    fn_stem = 'trained_models_rdk_reproduction/repro_'
+    out_size = n_afc  
+elif task_type == 'rdk_repro_cue':
+    fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
+    out_size = n_afc  
+  
+fb21_scalar = 1.0
+fb32_scalar = 1.0
 #--------------------------
 # decoding params
 #--------------------------
@@ -90,8 +95,8 @@ max_iter = 5000    # max iterations
 # on stim_prob... 
 #--------------------------
 settings = {'task' : task_type, 'n_afc' : n_afc, 'T' : T, 'stim_on' : stim_on, 'stim_dur' : stim_dur,
-            'stim_prob' : stim_prob_to_eval, 'stim_amp' : stim_amps, 'stim_noise' : stim_noise, 'batch_size' : batch_size, 
-            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':cue_dur}
+            'stim_prob' : stim_prob_eval, 'stim_amp' : stim_amp_eval, 'stim_noise' : stim_noise_eval, 'batch_size' : batch_size, 
+            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':cue_dur, 'rand_seed_bool':rand_seed_bool}
 
 # create the task object
 task = RDKtask( settings )
@@ -122,14 +127,14 @@ for m_num in np.arange( n_models ):
     
     # build a file name...
     if weighted_loss == 0:
-        fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob * 100 )}_stim_amp-{int( stim_amps_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_nw_mse_modnum-{m_num}.pt'
+        fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_nw_mse_modnum-{m_num}.pt'
     else:
         # if equal prob, then loss already evenly weighted across stims so can use the "nw_mse" version (non-weighted mse loss)
-        if stim_prob == 1 / n_afc:
-            fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob * 100 )}_stim_amp-{int( stim_amps_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'
+        if stim_prob_train == 1 / n_afc:
+            fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'
         else:
-            fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob * 100 )}_stim_amp-{int( stim_amps_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'  
-
+            fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_modnum-{m_num}.pt'  
+  
         
     # load the trained model, set to eval, requires_grad == False
     if device == 'cuda':
@@ -139,15 +144,21 @@ for m_num in np.arange( n_models ):
     print(f'loaded model {m_num}')
     
     # load cue scramble matrix
-    with open(f'{fn[:-3]}.json', "r") as infile:
-       _ , rnn_settings = json.load(infile)
-    sr_scram_list = rnn_settings['sr_scram']
-    sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
-    sr_scram = np.array(sr_scram_list)
-  
+    if task_type == 'rdk_repro_cue':
+        with open(f'{fn[:-3]}.json', "r") as infile:
+           _ , rnn_settings = json.load(infile)
+        sr_scram_list = rnn_settings['sr_scram']
+        sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
+        sr_scram = np.array(sr_scram_list)
+    else:
+        sr_scram = []
     
-    # option: update eval noise to bring class acc off ceiling
-    net.recurrent_layer.noise = noise_internal
+    # update internal noise
+    net.recurrent_layer.noise = int_noise_eval
+    # update fb21 and fb32
+    with torch.no_grad():
+        net.recurrent_layer.h_layer2.wfb_21.mul_(fb21_scalar)
+        net.recurrent_layer.h_layer3.wfb_32.mul_(fb32_scalar)
 
     # eval a batch of trials using the trained model
     outputs,s_label,w1,w2,w3,exc1,inh1,exc2,inh2,exc3,inh3,h1,h2,h3,ff12,ff23,fb21,fb32,tau1,tau2,tau3,m_acc,tbt_acc,cues = eval_model( net, task, sr_scram )
@@ -159,7 +170,7 @@ for m_num in np.arange( n_models ):
         plt.plot(np.squeeze( outputs[ :,(s_label_int==0) & (tbt_acc==0),0 ] ), c=hex_c[1], alpha=0.25 )
         plt.xlabel('Time Step')
         plt.ylabel('Output')
-        plt.title(f'expected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
+        plt.title(f'expected {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss mod-{m_num}')
         plt.show()
         
         # quick plots - the unexpected, correct and incorrect trials
@@ -174,7 +185,7 @@ for m_num in np.arange( n_models ):
             plt.xlabel('Time Step')
             plt.ylabel('Output')
         #plt.ylim((-0.2,1.1))
-        plt.title(f'unexpected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss mod-{m_num}')
+        plt.title(f'unexpected {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss mod-{m_num}')
         plt.show()
     
     if time_or_xgen == 0:
@@ -225,7 +236,7 @@ if time_or_xgen == 0:
         plt.errorbar( t, m_over_acc, sem_over_acc, fmt=hex_c[0], label = 'all stims' )
         plt.xlabel('Time Step')
         plt.ylabel('Accuracy')
-        plt.title(f' {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss')
+        plt.title(f' {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss')
         plt.show()
         
         # expected vs mean of the rest
@@ -233,7 +244,7 @@ if time_or_xgen == 0:
         plt.errorbar( t, np.mean( m_stim_acc[1:,:],axis=0 ), np.mean( sem_stim_acc[1:,:],axis=0 ), fmt=hex_c[1], label = 'unexpected' )
         plt.xlabel('Time Step')
         plt.ylabel('Accuracy')
-        plt.title(f'expected vs unexpected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss')
+        plt.title(f'expected vs unexpected {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss')
         plt.legend()
         plt.show()
         
@@ -243,7 +254,7 @@ if time_or_xgen == 0:
             plt.errorbar( t, m_stim_acc[i+1,:], sem_stim_acc[i+1,:], fmt=hex_c[i+1], label = f'unexpected {i+1}' )
         plt.xlabel('Time Step')
         plt.ylabel('Accuracy')
-        plt.title(f'expected vs unexpected {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss')
+        plt.title(f'expected vs unexpected {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss')
         plt.legend()
         #plt.savefig(f'plots/decoding/{fn[15:-4]}0-{n_models -1}.png')   
         plt.show()
@@ -259,7 +270,7 @@ if time_or_xgen == 0:
         plt.plot( t, m_over_acc, c=hex_c[0] )
         plt.xlabel('Time Step')
         plt.ylabel('Accuracy')
-        plt.title(f'{n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss')
+        plt.title(f'{n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss')
         plt.show()
         
         # expected vs mean of the rest
@@ -267,7 +278,7 @@ if time_or_xgen == 0:
         plt.plot( t, np.mean( m_stim_acc[1:,:],axis=0 ), c=hex_c[1], label = 'unexpected' )
         plt.xlabel('Time Step')
         plt.ylabel('Accuracy')
-        plt.title(f' {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss')
+        plt.title(f' {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss')
         plt.legend()
         plt.show()
 
@@ -277,7 +288,7 @@ if time_or_xgen == 0:
             plt.plot( t, m_stim_acc[i+1,:], c=hex_c[i+1], label = f'unexpected {i+1}' )
         plt.xlabel('Time Step')
         plt.ylabel('Accuracy')
-        plt.title(f' {n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss')
+        plt.title(f' {n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss')
         plt.legend()
         plt.show()       
 
@@ -293,19 +304,19 @@ else:
     # overall acc
     plt.imshow(m_over_acc,origin='lower',aspect='equal')
     plt.colorbar()
-    plt.title(f'{n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss overall')
+    plt.title(f'{n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss overall')
     plt.show()
     
     # for each stim - first expected
     plt.imshow(m_stim_acc[0,:,:],origin='lower',aspect='equal')
     plt.colorbar()
-    plt.title(f'{n_afc}-afc {stim_amps}s-amp {weighted_loss}-weighted_loss expected')
+    plt.title(f'{n_afc}-afc {stim_amp_train}s-amp {weighted_loss}-weighted_loss expected')
     plt.show()    
     
     # for each stim - then avg of unexpected
     plt.imshow(np.mean(m_stim_acc[1:,:,:],axis=0),origin='lower',aspect='equal')
     plt.colorbar()
-    plt.title(f'{n_afc}-afc {stim_amps}-amp {weighted_loss}-weighted_loss unexpected')
+    plt.title(f'{n_afc}-afc {stim_amp_train}-amp {weighted_loss}-weighted_loss unexpected')
     plt.show()        
     
 # save data if it's complete

@@ -164,7 +164,7 @@ if plots:
     
     
     # load npz saved on fishee transferred to nc6
-    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer3_feedback.npz', allow_pickle = True)
+    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer3_feedback_buggee.npz', allow_pickle = True)
     results = data['results']
     results_list = [item for item in results]  # Convert back to list
     df = pd.DataFrame(results_list)
@@ -180,11 +180,7 @@ if plots:
         ordered=True
     )
 
-    df[(df['stim_prob']=='Biased') & (df['fb21_scalar']==1.0) & (df['fb32_scalar']==1.0) &(df['cue_on']=='Start') 
-       & (df['layer']=='1') 
-          & (df['cue_layer']=='3')]['eval_acc'].shape   
-    
-        
+      
     #--------------------------
     # plot eval acc - fb21_s = 1.0 ..reducing fb32 in biased models
     #--------------------------
@@ -244,7 +240,7 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
+    #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -318,7 +314,7 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
+    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -392,7 +388,7 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     g.fig.text(0.5, 0.05, 'Reducing feedback from layer 2 to 1 only', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback21.png", format="png", bbox_inches="tight")
+    #g.savefig(f"decode_data/plots/eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback21.png", format="png", bbox_inches="tight")
     plt.show()
     
     # stats
@@ -561,7 +557,7 @@ if plots:
         break
     #g.fig.colorbar(im, ax=g.axes, orientation="vertical", pad = 0.02,shrink=0.6, fraction = .05)
     g.fig.subplots_adjust(top=0.9, bottom=0.1, left=0.1, right=0.9, hspace=0.3, wspace=0.3)
-
+    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_heatmap.png", format="png", bbox_inches="tight")
     plt.show()
     
     #--------------------------
@@ -595,7 +591,7 @@ if plots:
     g.set_axis_labels("fb21_scalar", "Eval Accuracy")
     g.set_titles(row_template="{row_name}", col_template="{col_name}")
     g.add_legend(title="fb32_scalar")
-    
+    g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_grouped.png", format="png", bbox_inches="tight")
     plt.show()
     #--------------------------
     # plot auc  - grouped bar plots
@@ -628,7 +624,7 @@ if plots:
     g.set_axis_labels("fb21_scalar", "Δ AUC")
     g.set_titles(row_template="{row_name}", col_template="{col_name}")
     g.add_legend(title="fb32_scalar")
-    
+    g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_grouped.png", format="png", bbox_inches="tight")
     plt.show()
     #--------------------------
     # stats
@@ -661,6 +657,17 @@ if plots:
         re_formula="~1"
     ).fit()
     print(mixed.summary())
+    
+    mixed_eval = smf.mixedlm(
+        "eval_acc ~ C(cue_on) + C(layer) + C(fb32_scalar) * C(fb21_scalar)",
+        data=df_fx,
+        groups=df_fx["model"],
+        re_formula="~1"
+    ).fit()
+    print(mixed_eval.summary())
+    
+    
+
     
    # # omnibus interaction
    #  model = smf.ols("delta_AUC ~ C(fb21_scalar) * C(fb32_scalar)", data=df).fit()

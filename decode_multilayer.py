@@ -27,7 +27,7 @@ import argparse
 # setup argparser
 # #--------------------------
 parser = argparse.ArgumentParser(description='Analyze RNNs')
-decoding params
+# decoding params
 parser.add_argument('--gpu', required=False,
         default='0', help="Which gpu?")
 parser.add_argument('--device', required=False,

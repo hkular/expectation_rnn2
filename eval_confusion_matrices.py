@@ -12,7 +12,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from itertools import product
 import json
-
+import pandas as pd
+import seaborn as sns
+from rdk_task import RDKtask
+import torch
 #--------------------------
 # Basic model params
 #--------------------------
@@ -43,8 +46,14 @@ time_or_xgen = 0
 w_size = 5
 classes = 'stim'
 n_models = 20
+rand_seed_bool = True
 fn_stem = f'trained_models_rdk_repro_cue/timing_{T}_cueon_{cue_on}/cue_layer{cue_layer}/reprocue_'
+settings = {'task' : task_type, 'n_afc' : n_afc, 'T' : T, 'stim_on' : stim_on, 'stim_dur' : stim_dur,
+            'stim_prob' : stim_prob_eval, 'stim_amp' : stim_amp_eval, 'stim_noise' : stim_noise_eval, 'batch_size' : batch_size, 
+            'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':cue_dur, 'rand_seed_bool':rand_seed_bool}
 
+# create the task object
+task = RDKtask( settings )
 #--------------------------
 # Which conditions to compare
 #--------------------------
@@ -53,17 +62,12 @@ cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
 fb21_scalars = [1.0,0.7,0.3]
 fb32_scalars = [1.0,0.7,0.3]
-# valid_combos = [(1.0, 1.0)]  # always include both at 1.0
-# # fb21 varies, fb32=1.0
-# valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
-# # fb32 varies, fb21=1.0
-# valid_combos += [(1.0, fb32) for fb32 in fb32_scalars if fb32 != 1.0]
 valid_combos = list(product(fb21_scalars, fb32_scalars))
 
 results = []
 
 plots = False
-
+err_types = {"no_response": 0, "multiple_response": 0, "wrong_response": 0}
 
 
 # load model evals
@@ -97,16 +101,63 @@ for stim_prob in stim_probs:
                 
                  # get labels
                  y_true = mod_data['stim_label'][m_num, stim_on,:].astype(int)
-                 y_out = mod_data['outputs'][m_num,:]                 
-                 y_pred = np.argmax(np.mean(y_out[stim_on:,:,:], axis = 0), axis = 1)
+                 y_out = mod_data['outputs'][m_num,:] 
                  cues = np.argmax(mod_data['cues'][100, :,:], axis = 1)
-                 # unscramble y_true
-                 y_unscrambled = np.full((batch_size), np.nan)
-                 for trial in np.arange(batch_size):
-                     y_true_unscrambled[trial] = sr_scram[ cues[trial], y_true[trial] ].astype(int)
+                 outputs = torch.from_numpy(y_out)
+                 
+                 s_label = np.zeros((batch_size, n_afc), dtype=int)
+                 s_label[np.arange(batch_size), y_true] = 1
+                 targs = (task.generate_rdk_reproduction_cue_target(s_label, sr_scram, cues))
+                 m_acc, tbt_acc = task.compute_acc_reproduction_cue(outputs, s_label, targs)
+                 
+                 
+                 y_pred = np.full((batch_size),np.nan)
+                 for nt in range(batch_size):
+                     
+                     if tbt_acc[nt] == 1:
+                         y_pred[nt] = np.argmax(np.mean(y_out[stim_on:,nt,:], axis = 0), axis = 0)
+                         
+                     else:
+                        # classify errors
+                         above = np.where(np.mean(y_out[stim_on:,nt,:], axis = 0) >= acc_amp_thresh)[0]
+                         below = np.where(np.mean(y_out[stim_on:,nt,:], axis = 0) >= 0.6)[0]
+                         
+                         # if (len(above) == 0 & len(below)==0):
+                         #     y_pred[nt] = -1  # no response
+                         #     err_types["no_response"] += 1
+                         # elif (len(above) == 0 & len(below)==0):
+                         #     y_pred[nt] = -3  # no response
+                         #     err_types["subthreshold 0.7"] += 1
+                         if len(above) == 0:
+                             y_pred[nt] = -1 # no response
+                             err_types["no_response"] += 1
+                         elif len(above) > 1:
+                             y_pred[nt] = -2  # multiple response
+                             err_types["multiple_response"] += 1
+                         
+                         else:
+                             y_pred[nt] = (above[0])  # wrong single response
+                             err_types["wrong_response"] += 1
+
+
+                 # y_pred = np.argmax(np.mean(y_out[stim_on:,:,:], axis = 0), axis = 1)
+                 
+                 # Step 2. Unscramble y_pred by inverting the mapping
+                 # For each cue, invert the mapping once
+                 unscramble = np.zeros_like(sr_scram)
+                 for c in range(sr_scram.shape[0]):
+                     for stim in range(sr_scram.shape[1]):
+                         scrambled_label = sr_scram[c, stim]
+                         unscramble[c, scrambled_label] = stim
+                
+                 # Step 3. Apply unscramble to model predictions
+                 y_pred_unscrambled = np.array([unscramble[c, p] for c, p in zip(cues, y_pred.astype(int))])
+ 
+                 cm_acc = (y_true == y_pred_unscrambled).sum()/batch_size
+                 print(f'eval acc: {mod_data['m_acc'][m_num]}, cm acc: {cm_acc}')
                 
                  # Compute confusion matrix
-                 cm = confusion_matrix(y_true, y_pred, labels=np.arange(6))
+                 cm = confusion_matrix(y_true, y_pred_unscrambled, labels=np.arange(6))
                 
                  # Normalize (optional, per row)
                  cm_norm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
@@ -118,20 +169,48 @@ for stim_prob in stim_probs:
                     'model': m_num,
                     'fb21_scalar':fb21_scalar,
                     'fb32_scalar':fb32_scalar,
-                    'cm_norm': cm_norm
+                    'eval_acc': mod_data['m_acc'][m_num],
+                    'cm_norm': cm_norm,
+                    'err_types': err_types
                     })
 
 
 
 fn_out = f"decode_data/plots/CM_{classes}_stimprob_x_cueon_cuelayer3_feedback.npz"
 
-np.savez( fn_out,results = results)
+np.savez( fn_out,results = results, allow_pickle = True)
 
 
 
 if plots == True:
+    
+    
+    data = np.load(f"decode_data/plots/CM_{classes}_stimprob_x_cueon_cuelayer3_feedback.npz", allow_pickle = True)
+    results = data['results']
+    results_list = [item for item in results]  # Convert back to list
+    df = pd.DataFrame(results_list)
+    #df = pd.DataFrame(data['results'])
+    df['cue_layer'] = df['cue_layer'].astype(str)
+    df['stim_prob'] = df['stim_prob'].replace({16: 'Unbiased', 70: 'Biased'})
+    cueon_map = {0: 'Start', 75: 'Stim Offset'}
+    df['cue_on'] = df['cue_on'].map(cueon_map)
+    df['cue_on'] = pd.Categorical(
+        df['cue_on'],
+        categories=['Start', 'Stim Offset'],
+        ordered=True
+    )
+    
+    
+    # subset data
+    df_ex = df[(df['stim_prob']=='Unbiased') &
+               (df['fb21_scalar']==1.0) &
+               (df['fb32_scalar']==1.0) &
+               (df['cue_on']=='Start') &
+               (df['model']==19) &
+               (df['cue_layer']=='3')]
+    
     # Plot heatmap
-    sns.heatmap(cm_norm, annot=True, fmt=".2f", cmap="viridis",
+    sns.heatmap(df_ex['cm_norm'].iloc[0], annot=True, fmt=".2f", cmap="viridis",
                 xticklabels=[f"Resp {i}" for i in range(6)],
                 yticklabels=[f"Stim {i}" for i in range(6)])
     plt.xlabel("Model Response")

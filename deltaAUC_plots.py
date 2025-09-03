@@ -145,7 +145,7 @@ for stim_prob in stim_probs:
                             'AUC_unexp': area_unexp,
                             'delta_AUC': (area_exp)-(area_unexp),
                              'eval_acc': mod_data['m_acc'][m],
-                             'stim_label': mod_data['stim_label'][m,:],
+#                             'stim_label': mod_data['stim_label'][m,:],
 #                            'outputs': mod_data['outputs'][m,:]
 #                           
                             })
@@ -159,7 +159,7 @@ if plots:
     
     
     # load npz saved on fishee transferred to nc6
-    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer1-3.npz', allow_pickle = True)
+    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer1-3_buggee.npz', allow_pickle = True)
     results = data['results']
     results_list = [item for item in results]  # Convert back to list
     df = pd.DataFrame(results_list)
@@ -448,9 +448,68 @@ if plots:
     # #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
     # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer1.png", format="png", bbox_inches="tight")
     # plt.show()
+    #--------------------------
+    # plot Eval Acc main effect of cueon when cue layer3
+    #--------------------------
+    df_ex = df#[df['cue_layer']=='hLayer3']
+    # Set plot aesthetics
+    sns.set(style="ticks", context="talk")
+    # Initialize FacetGrid
+    g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    palette = sns.color_palette("viridis", 20)
+    custom_subset = [palette[i] for i in [16,10]]
+    # Map barplot onto each facet
+    g.map_dataframe(
+        sns.barplot,
+        x="stim_prob",
+        y="eval_acc",
+        hue="cue_on",
+        palette = custom_subset,
+        errorbar=None,
+        estimator=np.mean,
+        dodge = True
+    )
+    
+    # Add custom error bars
+    hue_order = ['Start', 'Stim Offset']
+    x_order = sorted(df_ex['stim_prob'].unique(), reverse=True)
+    n_hues = len(hue_order)
+    bar_width = 0.8
+    width_per_bar = bar_width / n_hues
+    
+    for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
+        subset = df_ex[df_ex['layer'] == layer]
+        means = subset.groupby(['stim_prob', 'cue_on'])['eval_acc'].mean().reset_index()
+        errors = subset.groupby(['stim_prob', 'cue_on'])['eval_acc'].apply(sem).reset_index()
+    
+        for i, row in means.iterrows():
+            prob = row['stim_prob']
+            noise = row['cue_on']
+            mean = row['eval_acc']
+            err = errors.loc[
+                (errors['stim_prob'] == prob) &
+                (errors['cue_on'] == noise),
+                'eval_acc'
+            ].values[0]
+            xloc = x_order.index(prob)
+            hloc = hue_order.index(noise)
+            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    
+    # Final plot cleanup
+    #g.set(ylim=(0, 3.5))
+    g.set_axis_labels("", "Eval Accuracy")
+    g.set_titles("Layer {col_name}")
+    g.add_legend(title='cue_on', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    
+    # Center shared x-axis label
+    plt.subplots_adjust(bottom=0.2, left=0.12)
+    #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
+    #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_buggee.png", format="png", bbox_inches="tight")
+    plt.show()
     
     #--------------------------
-    # plot main effect of cueon when cue layer3
+    # plot DAUC main effect of cueon when cue layer3
     #--------------------------
     df_ex = df#[df['cue_layer']=='hLayer3']
     # Set plot aesthetics
@@ -506,7 +565,7 @@ if plots:
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
     #g.fig.text(0.5, 0.05, 'Stimulus Probability', ha='center', fontsize=14)
-    #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3.png", format="png", bbox_inches="tight")
+    # g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_fishee.png", format="png", bbox_inches="tight")
     plt.show()
     
     #--------------------------
@@ -714,7 +773,15 @@ if plots:
     print(AnovaRM(data=cue3, depvar='delta_AUC',
                   subject='model', within=['cue_on', 'stim_prob'], aggregate_func='mean').fit())
     
+
     
+    mixed_cue3_eval = smf.mixedlm(
+        "eval_acc ~ C(cue_on) * C(stim_prob) * C(layer)",
+        data=cue3,
+        groups=cue3["model"],
+        re_formula="~1"
+    ).fit()
+    print(mixed_cue3_eval.summary())
     
     
     mixed_cue3 = smf.mixedlm(
@@ -725,14 +792,6 @@ if plots:
     ).fit()
     print(mixed_cue3.summary())
     
-    # cue_on x cue_layer
-    mixed_cue3 = smf.mixedlm(
-        "delta_AUC ~ C(cue_on) * C(stim_prob)",
-        data=cue3,
-        groups=cue3["model"],
-        re_formula="~1"
-    ).fit()
-    print(mixed_cue3.summary())
     
     # pairwise t-tests within each layer
     cue3_biased = cue3[cue3['stim_prob']=='Biased']
@@ -753,16 +812,7 @@ if plots:
         print(ph)   # show full output so you see all columns
     
     
-    a = cue3_biased[
-        (cue3_biased['layer'] == '3') &
-        (cue3_biased['cue_on'] == 'Start')
-    ][['delta_AUC']]
-    b  = cue3_biased[
-        (cue3_biased['layer'] == '3') &
-        (cue3_biased['cue_on'] == 'Stim Offset')
-    ][['delta_AUC']]
-    
-    stats.ttest_rel(a, b, axis=0, nan_policy='propagate', alternative='greater')
+   
 
 
 fn_out = f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer1-3.npz"
