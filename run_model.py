@@ -291,12 +291,12 @@ for m_num in range( model_offset,model_offset+n_models ):
                     if task_type=='rdk':
                         inputs,s_label = task.generate_rdk_stim()  
                         targets = task.generate_rdk_target( s_label )
-                        cues = np.zeros( (T, batch_size, n_stim_chans) )   #make dummy cues - not applied
+                        cues = np.zeros( (T, batch_size, n_afc) )   #make dummy cues - not applied
     
                     elif task_type=='rdk_reproduction':
                         inputs,s_label = task.generate_rdk_reproduction_stim()  
                         targets = task.generate_rdk_reproduction_target( s_label )
-                        cues = np.zeros( (T, batch_size, n_stim_chans) )   #make dummy cues - not applied
+                        cues = np.zeros( (T, batch_size, n_afc) )   #make dummy cues - not applied
     
                     elif task_type=='rdk_repro_cue':
                         
