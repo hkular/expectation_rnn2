@@ -8,9 +8,10 @@ Created on Fri May  9 16:00:15 2025
 #--------------------------
 # imports
 #--------------------------
+import os
+os.environ["OMP_NUM_THREADS"] = "4" #try limiting threads because of multithreading overhead and greedy BLAS
 import numpy as np
 import json
-import os
 import matplotlib.pyplot as plt    # note: importing this in all files just for debugging stuff
 from scipy.stats import sem
 from helper_funcs import *
