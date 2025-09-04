@@ -181,7 +181,7 @@ if plots:
         dodge = True,order=x_order,
         hue_order=hue_order
     )
-   for ax, stim_noise in zip(g.axes.flat, sorted(df_ex['stim_noise'].unique(), key=int)):
+    for ax, stim_noise in zip(g.axes.flat, sorted(df_ex['stim_noise'].unique(), key=int)):
         subset = df_ex[df_ex['stim_noise'] == stim_noise]
         means = subset.groupby(['stim_prob', 'cue_on'], observed = False)['eval_acc'].mean().reset_index()
         errors = subset.groupby(['stim_prob', 'cue_on'], observed = False)['eval_acc'].apply(sem).reset_index()
