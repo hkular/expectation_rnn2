@@ -141,7 +141,8 @@ for stim_prob in stim_probs:
                                 'AUC_exp': area_exp,
                                 'AUC_unexp': area_unexp,
                                 'delta_AUC': (area_exp)-(area_unexp),
-                                'eval_acc': mod_data['m_acc'][m]
+                                'eval_acc': mod_data['m_acc'][m],
+                                'stim_noise': stim_noise,
                                 })
 
 # Close connections
@@ -153,7 +154,7 @@ if plots:
     
     
     # load npz saved on fishee transferred to nc6
-    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer3_feedback_buggee.npz', allow_pickle = True)
+    data = np.load(f'decode_data/plots/D_AUC_stim_stimprob_x_cueon_cuelayer3_feedback.npz', allow_pickle = True)
     results = data['results']
     results_list = [item for item in results]  # Convert back to list
     df = pd.DataFrame(results_list)
@@ -173,16 +174,16 @@ if plots:
     #--------------------------
     # plot main effect of cue timing
     #--------------------------
-    df_main = df[(df['fb32_scalar']==1.0) &
+    df_ex = df[(df['fb32_scalar']==1.0) &
                (df['fb21_scalar']==1.0)]
     # Set plot aesthetics
     sns.set(style="ticks", context="talk")
     # Initialize FacetGrid
     g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
     # Add custom error bars
-    hue_order = list(np.unique(df_ex['fb32_scalar']))
-    x_order = list(sorted(df_ex['cue_on'].unique(), reverse=True))
-    n_hues = len(np.unique(df_ex['fb32_scalar']))
+    hue_order = list(np.unique(df_ex['cue_on']))
+    x_order = list(sorted(df_ex['stim_prob'].unique(), reverse=True))
+    n_hues = len(np.unique(df_ex['cue_on']))
     bar_width = 0.8
     discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
 
@@ -190,9 +191,9 @@ if plots:
     # Map barplot onto each facet
     g.map_dataframe(
         sns.barplot,
-        x="cue_on",
+        x="stim_prob",
         y="eval_acc",
-        hue="fb32_scalar",
+        hue="cue_on",
         palette = discrete_palette,
         ci=None,
         errorbar=None,
@@ -203,20 +204,20 @@ if plots:
        
     for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
         subset = df_ex[df_ex['layer'] == layer]
-        means = subset.groupby(['cue_on', 'fb32_scalar'])['eval_acc'].mean().reset_index()
-        errors = subset.groupby(['cue_on', 'fb32_scalar'])['eval_acc'].apply(sem).reset_index()
+        means = subset.groupby(['stim_prob', 'cue_on'])['eval_acc'].mean().reset_index()
+        errors = subset.groupby(['stim_prob', 'cue_on'])['eval_acc'].apply(sem).reset_index()
     
         for i, row in means.iterrows():
-            prob = row['cue_on']
-            noise = row['fb32_scalar']
+            x_ax = row['stim_prob']
+            h_ax = row['cue_on']
             mean = row['eval_acc']
             err = errors.loc[
-                (errors['cue_on'] == prob) &
-                (errors['fb32_scalar'] == noise),
+                (errors['stim_prob'] == x_ax) &
+                (errors['cue_on'] == h_ax),
                 'eval_acc'
             ].values[0]
-            xloc = x_order.index(prob)
-            hloc = hue_order.index(noise)
+            xloc = x_order.index(x_ax)
+            hloc = hue_order.index(h_ax)
             bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
             ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
     
@@ -224,12 +225,13 @@ if plots:
     #g.set(ylim=(0, 3.5))
     g.set_axis_labels("", "Eval Accuracy")
     g.set_titles("Layer {col_name}")
-    g.add_legend(title='fb32_scalar', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    g.add_legend(title='Cue Onset', bbox_to_anchor=(0.86, 0.5), loc='center left')
     
     # Center shared x-axis label
     plt.subplots_adjust(bottom=0.2, left=0.12)
-    g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
-    #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
+    #g.fig.text(0.5, 0.05, 'Evaluation Accuracy', ha='center', fontsize=14)
+    #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_main.png", format="png", bbox_inches="tight")
+    #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_main.svg", format="svg", bbox_inches="tight")
     plt.show()
     
     
