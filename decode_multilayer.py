@@ -171,9 +171,6 @@ settings = {'task' : task_type, 'n_afc' : n_afc, 'T' : T, 'stim_on' : stim_on, '
             'stim_prob' : stim_prob_eval, 'stim_amp' : stim_amp_eval, 'stim_noise' : stim_noise_eval, 'batch_size' : batch_size, 
             'acc_amp_thresh' : acc_amp_thresh, 'out_size' : out_size, 'num_cues':num_cues, 'cue_on':cue_on, 'cue_dur':cue_dur, 'rand_seed_bool':rand_seed_bool}
 
-# create the task object
-task = RDKtask( settings )
-
 
 #--------------------------
 # How many trained models in this cond
@@ -203,6 +200,11 @@ else:
 
 for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
     
+    # for seeding the random number generator - want it associated with m_num for reproducibility that preserves mod variance
+    settings['seed_num'] = m_num
+    # create the task object
+    task = RDKtask( settings )
+
     # build a file name...
     if weighted_loss == 0:
         fn = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_nw_mse_modnum-{m_num}.pt'
