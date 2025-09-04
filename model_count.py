@@ -52,7 +52,7 @@ def count_models( n_afc, stim_prob, stim_amps, stim_noise, weighted_loss, task_t
                 fn = f'repro_num_afc-{n_afc}_stim_prob-{int( stim_prob * 100 )}_stim_amp-{int( stim_amps * 100 )}_stim_noise-{int( stim_noise * 100 )}_h_bias_trainable-1'  
         
         # define full path to emodel directory
-        model_dir = os.path.join(directory, 'trained_models_rdk_reproduction')
+        model_dir = os.path.join(directory, fn_stem[:-6])
         if not os.path.exists(model_dir):
             print(f"Directory {model_dir} does not exist.")
             return 0

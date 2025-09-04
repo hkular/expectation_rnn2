@@ -77,7 +77,7 @@ parser.add_argument('--fb32_scalar', required=False,type=float, default = '1.0',
 args = parser.parse_args()
 
 # for debugging
-# args.task_type = 'rdk_repro_cue'
+# args.task_type = 'rdk_reproduction'
 # args.gpu = 1
 # args.device = 'cpu'
 # args.classes = 'cue'
