@@ -28,7 +28,7 @@ import argparse
 # setup argparser
 # #--------------------------
 parser = argparse.ArgumentParser(description='Analyze RNNs')
-# decoding params
+# # decoding params
 parser.add_argument('--gpu', required=False,
         default='0', help="Which gpu?")
 parser.add_argument('--device', required=False,
@@ -244,6 +244,8 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
         sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
         sr_scram = np.array(sr_scram_list)
     else:
+        with open(f'{fn[:-3]}.json', "r") as infile:
+           _ , rnn_settings = json.load(infile)
         sr_scram = []
     print(f'loaded model {m_num}')
     if rnn_settings['step'] >= iters:
