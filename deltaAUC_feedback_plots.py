@@ -142,7 +142,7 @@ for stim_prob in stim_probs:
                                 'AUC_unexp': area_unexp,
                                 'delta_AUC': (area_exp)-(area_unexp),
                                 'eval_acc': mod_data['m_acc'][m],
-                                'stim_noise': stim_noise,
+                                'stim_noise': stim_noise_eval,
                                 })
 
 # Close connections
