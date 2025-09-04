@@ -265,10 +265,12 @@ for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
         # eval a batch of trials using the trained model
         outputs[m_idx,:],s_label,h1,h2,h3,m_acc[m_idx],tbt_acc[m_idx,:],cues = eval_model_light( net, task, sr_scram, equal_balance )
         # s_label is a diff shape for cue version, deal with if statement later
-        s_label_int = np.argmax(s_label, axis=1)
-        s_labels[m_idx,:] = s_label_int
-        cues_int[m_idx,:] = np.argmax(cues[100,:,:].cpu().detach().numpy(), axis =1) # at t=100 cue should be on in all conditions change if we do early cue offset
-    
+        if task_type == 'rdk_repro_cue':
+            s_label_int = np.argmax(s_label, axis=1)
+            s_labels[m_idx,:] = s_label_int
+            cues_int[m_idx,:] = np.argmax(cues[100,:,:].cpu().detach().numpy(), axis =1) # at t=100 cue should be on in all conditions change if we do early cue offset
+        else:
+            s_label_int = s_label.astype(int)
         # store indices
         # params_dict[ m_idx ]['exc1'] = exc1
         # params_dict[ m_idx ]['exc2'] = exc2
