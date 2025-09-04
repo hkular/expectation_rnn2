@@ -96,7 +96,7 @@ for stim_prob in stim_probs:
     
     for cue_on in cue_onsets:
         
-        for stim_noise in stim_noises:
+        for stim_noise_eval in stim_noises:
         
             for fb21_scalar, fb32_scalar in valid_combos:
         
@@ -195,7 +195,6 @@ if plots:
         y="eval_acc",
         hue="cue_on",
         palette = discrete_palette,
-        ci=None,
         errorbar=None,
         estimator=np.mean,
         dodge = True,order=x_order,
@@ -204,8 +203,8 @@ if plots:
        
     for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
         subset = df_ex[df_ex['layer'] == layer]
-        means = subset.groupby(['stim_prob', 'cue_on'])['eval_acc'].mean().reset_index()
-        errors = subset.groupby(['stim_prob', 'cue_on'])['eval_acc'].apply(sem).reset_index()
+        means = subset.groupby(['stim_prob', 'cue_on'], observed = False)['eval_acc'].mean().reset_index()
+        errors = subset.groupby(['stim_prob', 'cue_on'], observed = False)['eval_acc'].apply(sem).reset_index()
     
         for i, row in means.iterrows():
             x_ax = row['stim_prob']
