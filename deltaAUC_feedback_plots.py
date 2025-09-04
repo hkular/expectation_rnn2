@@ -16,9 +16,6 @@ import seaborn as sns
 import pandas as pd
 import statsmodels.formula.api as smf
 import pingouin as pg
-#from statsmodels.stats.anova import AnovaRM
-#import paramiko
-#from io import BytesIO
 from itertools import product
 import statsmodels.api as sm
 from statsmodels.stats.anova import anova_lm
@@ -76,13 +73,9 @@ sustained_acc = np.zeros((n_models, n_layers, n_stim_types))
 cue_onsets = [0, 75]
 cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
-fb21_scalars = [1.0,0.7,0.3]
-fb32_scalars = [1.0,0.7,0.3]
-# valid_combos = [(1.0, 1.0)]  # always include both at 1.0
-# # fb21 varies, fb32=1.0
-# valid_combos += [(fb21, 1.0) for fb21 in fb21_scalars if fb21 != 1.0]
-# # fb32 varies, fb21=1.0
-# valid_combos += [(1.0, fb32) for fb32 in fb32_scalars if fb32 != 1.0]
+fb21_scalars = [1.0,0.7]
+fb32_scalars = [1.0,0.7]
+stim_noises = [0.1,0.6]
 valid_combos = list(product(fb21_scalars, fb32_scalars))
 
 results = []
@@ -103,57 +96,53 @@ for stim_prob in stim_probs:
     
     for cue_on in cue_onsets:
         
+        for stim_noise in stim_noises:
         
-        for fb21_scalar, fb32_scalar in valid_combos:
-    
-             # load the correct model
-             if stim_prob == 0.7:
-                 fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-             else:
-                 fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+            for fb21_scalar, fb32_scalar in valid_combos:
+        
+                 # load the correct model
+                 if stim_prob == 0.7:
+                     fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+                 else:
+                     fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+                 
+                 # remote_file = f"{remote_base}/{fn}"
+                 
+                 # Open remote file and read into memory
+                 #with sftp.file(remote_file, "rb") as f:
+                  #   buf = BytesIO(f.read())
+                 mod_data = np.load(fn, allow_pickle=True)
+                 
+                 # Process your data
+                 print(f"Loaded {fn}, keys: {mod_data.files}")
+                 
              
-            # remote_file = f"{remote_base}/{fn}"
-             
-             # Open remote file and read into memory
-             #with sftp.file(remote_file, "rb") as f:
-              #   buf = BytesIO(f.read())
-             mod_data = np.load(fn, allow_pickle=True)
-             
-             # Process your data
-             print(f"Loaded {fn}, keys: {mod_data.files}")
-             
-         
-             # timing
-             t = np.arange(0, T, T / mod_data['stim_acc'].shape[3])
-             stim_offset_win = int(np.where(t == stim_offset)[0][0])
-             decay_win = int(np.where(t==stim_offset+decay_window)[0][0])
-             sustain_win = int(np.where(t==stim_offset+sustain_window)[0][0])
-             
-           
-             for m in range(n_models):
-                 for l in range(n_layers):
+                 # timing
+                 t = np.arange(0, T, T / mod_data['stim_acc'].shape[3])
+                 stim_offset_win = int(np.where(t == stim_offset)[0][0]) 
+               
+                 for m in range(n_models):
+                     for l in range(n_layers):
+                             
                          
-                     
-                        # calculate AUC
-                        area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
-                        area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
-                        
-        
-                        results.append({
-                            'stim_prob': int(100*stim_prob),
-                            'cue_on': cue_on,
-                            'cue_layer': cue_layer,
-                            'model': m,
-                            'layer': l+1,
-                            'fb21_scalar':fb21_scalar,
-                            'fb32_scalar':fb32_scalar,
-                            'AUC_exp': area_exp,
-                            'AUC_unexp': area_unexp,
-                            'delta_AUC': (area_exp)-(area_unexp),
-                            'eval_acc': mod_data['m_acc'][m],
-#                            'stim_label': mod_data['stim_label'][m,:],
-#                            'outputs': mod_data['outputs'][m,:]
-                            })
+                            # calculate AUC
+                            area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
+                            area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
+                            
+            
+                            results.append({
+                                'stim_prob': int(100*stim_prob),
+                                'cue_on': cue_on,
+                                'cue_layer': cue_layer,
+                                'model': m,
+                                'layer': l+1,
+                                'fb21_scalar':fb21_scalar,
+                                'fb32_scalar':fb32_scalar,
+                                'AUC_exp': area_exp,
+                                'AUC_unexp': area_unexp,
+                                'delta_AUC': (area_exp)-(area_unexp),
+                                'eval_acc': mod_data['m_acc'][m]
+                                })
 
 # Close connections
 #sftp.close()
@@ -180,7 +169,71 @@ if plots:
         ordered=True
     )
 
-      
+    
+    #--------------------------
+    # plot main effect of cue timing
+    #--------------------------
+    df_main = df[(df['fb32_scalar']==1.0) &
+               (df['fb21_scalar']==1.0)]
+    # Set plot aesthetics
+    sns.set(style="ticks", context="talk")
+    # Initialize FacetGrid
+    g = sns.FacetGrid(df_ex, col="layer", col_wrap=3, sharey=True, height = 4, aspect = 1.2)
+    # Add custom error bars
+    hue_order = list(np.unique(df_ex['fb32_scalar']))
+    x_order = list(sorted(df_ex['cue_on'].unique(), reverse=True))
+    n_hues = len(np.unique(df_ex['fb32_scalar']))
+    bar_width = 0.8
+    discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
+
+    width_per_bar = bar_width / n_hues
+    # Map barplot onto each facet
+    g.map_dataframe(
+        sns.barplot,
+        x="cue_on",
+        y="eval_acc",
+        hue="fb32_scalar",
+        palette = discrete_palette,
+        ci=None,
+        errorbar=None,
+        estimator=np.mean,
+        dodge = True,order=x_order,
+        hue_order=hue_order
+    )
+       
+    for ax, layer in zip(g.axes.flat, sorted(df_ex['layer'].unique(), key=int)):
+        subset = df_ex[df_ex['layer'] == layer]
+        means = subset.groupby(['cue_on', 'fb32_scalar'])['eval_acc'].mean().reset_index()
+        errors = subset.groupby(['cue_on', 'fb32_scalar'])['eval_acc'].apply(sem).reset_index()
+    
+        for i, row in means.iterrows():
+            prob = row['cue_on']
+            noise = row['fb32_scalar']
+            mean = row['eval_acc']
+            err = errors.loc[
+                (errors['cue_on'] == prob) &
+                (errors['fb32_scalar'] == noise),
+                'eval_acc'
+            ].values[0]
+            xloc = x_order.index(prob)
+            hloc = hue_order.index(noise)
+            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
+            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    
+    # Final plot cleanup
+    #g.set(ylim=(0, 3.5))
+    g.set_axis_labels("", "Eval Accuracy")
+    g.set_titles("Layer {col_name}")
+    g.add_legend(title='fb32_scalar', bbox_to_anchor=(0.86, 0.5), loc='center left')
+    
+    # Center shared x-axis label
+    plt.subplots_adjust(bottom=0.2, left=0.12)
+    g.fig.text(0.5, 0.05, 'Reducing feedback from layer 3 to 2 only', ha='center', fontsize=14)
+    #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_feedback32.png", format="png", bbox_inches="tight")
+    plt.show()
+    
+    
+    
     #--------------------------
     # plot eval acc - fb21_s = 1.0 ..reducing fb32 in biased models
     #--------------------------
