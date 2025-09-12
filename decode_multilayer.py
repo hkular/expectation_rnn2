@@ -9,7 +9,7 @@ Created on Fri May  9 16:00:15 2025
 # imports
 #--------------------------
 import os
-os.environ["OMP_NUM_THREADS"] = "4" #try limiting threads because of multithreading overhead and greedy BLAS
+#os.environ["OMP_NUM_THREADS"] = "4" #try limiting threads because of multithreading overhead and greedy BLAS
 import numpy as np
 import json
 import matplotlib.pyplot as plt    # note: importing this in all files just for debugging stuff
@@ -201,7 +201,7 @@ else:
 for m_idx, m_num in enumerate( np.arange(n_models).astype(int) ):
     
     # for seeding the random number generator - want it associated with m_num for reproducibility that preserves mod variance
-    settings['seed_num'] = m_num
+    settings['seed_num'] = 123 # or m_num for models to vary
     # create the task object
     task = RDKtask( settings )
 

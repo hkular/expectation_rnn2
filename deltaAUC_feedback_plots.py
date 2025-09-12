@@ -325,15 +325,16 @@ if plots:
     #--------------------------
     # plot main effect of feedback reduction under noise
     #--------------------------
-    df_ex = df[(df['stim_noise']==0.6) & df['stim_prob']=='Biased']
+    df_ex = df[(df['stim_prob']=='Biased') &
+               (df['stim_noise']==0.1)]
     # Set plot aesthetics
     sns.set(style="ticks", context="talk")
     # Initialize FacetGrid
-    g = sns.FacetGrid(df_ex, row = "fb21_scalar", col="layer", sharey=True, height = 4, aspect = 1.2)
+    g = sns.FacetGrid(df_ex, row = "stim_noise", col="layer", sharey=True, height = 4, aspect = 1.2)
     # Add custom error bars
-    hue_order = list(np.unique(df_ex['cue_onset']))
-    x_order = list(sorted(df_ex['fb32_scalar'].unique(), reverse=True))
-    n_hues = len(np.unique(df_ex['cue_onset']))
+    hue_order = list(np.unique(df_ex['cue_on']))
+    x_order = list(sorted(df_ex['stim_prob'].unique(), reverse=True))
+    n_hues = len(np.unique(df_ex['cue_on']))
     bar_width = 0.8
     discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
 
@@ -341,9 +342,9 @@ if plots:
     # Map barplot onto each facet
     g.map_dataframe(
         sns.barplot,
-        x="fb32_scalar",
+        x="stim_prob",
         y="delta_AUC",
-        hue="cue_onset",
+        hue="cue_on",
         palette = discrete_palette,
         errorbar=None,
         estimator=np.mean,
@@ -352,19 +353,19 @@ if plots:
     )
     # sorted(df_ex['layer'].unique(), key=int)
     for (noise, layer), ax in zip(
-        [(n, l) for n in sorted(df_ex['fb21_scalar'].unique(), key=str, reverse = True)
+        [(n, l) for n in sorted(df_ex['stim_noise'].unique(), key=int)
                 for l in sorted(df_ex['layer'].unique(), key=int)],
         g.axes.flat):
-        subset = df_ex[(df_ex['fb21_scalar'] == noise) & (df_ex['layer'] == layer)]
-        means = subset.groupby(['fb32_scalar', 'cue_onset'], observed = False)['delta_AUC'].mean().reset_index()
-        errors = subset.groupby(['fb32_scalar', 'cue_onset'], observed = False)['delta_AUC'].apply(sem).reset_index()
+        subset = df_ex[(df_ex['stim_noise'] == noise) & (df_ex['layer'] == layer)]
+        means = subset.groupby(['stim_prob', 'cue_on'], observed = False)['delta_AUC'].mean().reset_index()
+        errors = subset.groupby(['stim_prob', 'cue_on'], observed = False)['delta_AUC'].apply(sem).reset_index()
         for i, row in means.iterrows():
-            x_ax = row['fb32_scalar']
-            h_ax = row['cue_onset']
+            x_ax = row['stim_prob']
+            h_ax = row['cue_on']
             mean = row['delta_AUC']
             err = errors.loc[
-                (errors['fb32_scalar'] == x_ax) &
-                (errors['cue_onset'] == h_ax),
+                (errors['stim_prob'] == x_ax) &
+                (errors['cue_on'] == h_ax),
                 'delta_AUC'
             ].values[0]
             xloc = x_order.index(x_ax)
@@ -375,12 +376,11 @@ if plots:
     # Final plot cleanup
     #g.set(ylim=(-4, 20))
     g.set_axis_labels("", "")
-    g.set_titles("Layer {col_name}, {row_name}")
+    g.set_titles("Layer {col_name}, Noise {row_name}")
     g.fig.text(0.07, 0.5, "AUC Expected - Unexpected", 
            va="center", rotation="vertical")
-    g.add_legend(title='Feedback 2->1', bbox_to_anchor=(0.86, 0.5), loc='center left')   
+    g.add_legend(title='Cue Onset', bbox_to_anchor=(0.86, 0.5), loc='center left')   
     # Center shared x-axis label
-    g.fig.text(0.5, 0.11, f'Feedback 3->2', ha='center')
     plt.subplots_adjust(bottom=0.2, left=0.12)
     #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_main_stimnoise_facet.png", format="png", bbox_inches="tight")
     #g.savefig(f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_main_stimnoise_facet.svg", format="svg", bbox_inches="tight")

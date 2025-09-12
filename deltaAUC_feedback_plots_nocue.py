@@ -157,73 +157,56 @@ if plots:
     #--------------------------
     df_ex = df[(df['fb32_scalar']==1.0) &
                (df['fb21_scalar']==1.0) & (df['layer']=='1')]
-    # Set plot aesthetics
-    sns.set(style="ticks", context="talk")
-    # Initialize FacetGrid
-    g = sns.FacetGrid(df_ex, col="stim_noise", col_wrap=2, sharey=True, height = 4, aspect = 1)
-    # Add custom error bars
-    hue_order = list(np.unique(df_ex['cue_on']))
-    x_order = list(sorted(df_ex['stim_prob'].unique(), reverse=True))
-    n_hues = len(np.unique(df_ex['cue_on']))
-    bar_width = 0.8
-    discrete_palette = sns.color_palette('viridis', n_colors=n_hues)
 
-    width_per_bar = bar_width / n_hues
-    # Map barplot onto each facet
-    g.map_dataframe(
-        sns.barplot,
-        x="stim_prob",
-        y="eval_acc",
-        hue="cue_on",
-        palette = discrete_palette,
-        errorbar=None,
-        estimator=np.mean,
-        dodge = True,order=x_order,
-        hue_order=hue_order
+    # Aggregate mean and SEM per stim_prob and stim_noise
+    stats = df_ex.groupby(['stim_prob', 'stim_noise'])['eval_acc'] \
+                 .agg(mean='mean', sem=sem).reset_index()
+    
+    sns.set(style="ticks", context="talk")
+    plt.figure(figsize=(7,5))
+    
+    # Draw barplot
+    sns.barplot(
+        data=stats,
+        x='stim_prob',
+        y='mean',
+        hue='stim_noise',
+        palette='magma',
+        errorbar=None  # we will add custom error bars
     )
-    for ax, stim_noise in zip(g.axes.flat, sorted(df_ex['stim_noise'].unique(), key=int)):
-        subset = df_ex[df_ex['stim_noise'] == stim_noise]
-        means = subset.groupby(['stim_prob', 'cue_on'], observed = False)['eval_acc'].mean().reset_index()
-        errors = subset.groupby(['stim_prob', 'cue_on'], observed = False)['eval_acc'].apply(sem).reset_index()
     
-        for i, row in means.iterrows():
-            x_ax = row['stim_prob']
-            h_ax = row['cue_on']
-            mean = row['eval_acc']
-            err = errors.loc[
-                (errors['stim_prob'] == x_ax) &
-                (errors['cue_on'] == h_ax),
-                'eval_acc'
-            ].values[0]
-            xloc = x_order.index(x_ax)
-            hloc = hue_order.index(h_ax)
-            bar_center = xloc - bar_width / 2 + width_per_bar / 2 + hloc * width_per_bar
-            ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+    # Add error bars manually
+    for i, row in stats.iterrows():
+        x = row['stim_prob']
+        # Find the x location of the bar
+        xloc = list(sorted(stats['stim_prob'].unique())).index(x)
+        hue_order = sorted(stats['stim_noise'].unique())
+        hloc = hue_order.index(row['stim_noise'])
+        n_hues = len(hue_order)
+        bar_width = 0.8
+        width_per_bar = bar_width / n_hues
+        bar_center = xloc - bar_width/2 + width_per_bar/2 + hloc*width_per_bar
+        plt.errorbar(
+            x=bar_center,
+            y=row['mean'],
+            yerr=row['sem'],
+            fmt='none',
+            c='black',
+            capsize=5
+        )
     
-    # Final plot cleanup
-    #g.set(ylim=(0, 3.5))
-    g.set_axis_labels("", "Eval Accuracy")
-    g.set_titles("Stimulus Noise {col_name}")
-    g.add_legend(title='Cue Onset', bbox_to_anchor=(0.86, 0.5), loc='center left')
-    
-    # Center shared x-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.12)
-    #g.fig.text(0.5, 0.05, 'Evaluation Accuracy', ha='center', fontsize=14)
-    g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_main.png", format="png", bbox_inches="tight")
-    g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_main.svg", format="svg", bbox_inches="tight")
+    plt.xlabel("Stimulus Probability")
+    plt.ylabel("Eval Accuracy")
+    plt.title("No-Cue Task RNNs")
+    plt.legend(title="Stimulus Noise", bbox_to_anchor=(1.0, 0.5), loc='center left', fontsize = 14)
+    plt.tight_layout()
+    #plt.savefig(f"decode_data/plots/Eval_acc_{classes}_reproduction_main.png", format="png", bbox_inches="tight")
+    #plt.savefig(f"decode_data/plots/Eval_acc_{classes}_reproduction_main.svg", format="svg", bbox_inches="tight")
     plt.show()
-    
+        
     # stats
     df_ex = df_ex.copy()
     df_ex['stim_noise'] = df_ex['stim_noise'].map({0.1: 'Low', 0.6: 'High'})
-
-    # mixed = smf.mixedlm(
-    #     "eval_acc ~ C(cue_on) + C(stim_noise) + C(stim_prob)",
-    #     data=df_ex,
-    #     groups=df_ex["model"],
-    #     re_formula="~1"
-    # ).fit()
-    # print(mixed.summary())
     
    
     aovrm = AnovaRM(df_ex, depvar='eval_acc', subject='model', within=['cue_on','stim_noise','stim_prob'])
@@ -636,7 +619,6 @@ if plots:
     g.add_legend(title="fb32_scalar")
     #g.savefig(f"decode_data/plots/Eval_acc_{classes}_stimprob_x_cueon_cuelayer3_grouped.png", format="png", bbox_inches="tight")
     plt.show()
-    
     #--------------------------
     # plot auc  - grouped bar plots
     #--------------------------
