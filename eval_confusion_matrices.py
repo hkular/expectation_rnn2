@@ -203,7 +203,7 @@ for stim_prob in stim_probs:
 
 
 
-fn_out = f"decode_data/plots/CM_{classes}_{task}_feedback.npz"
+fn_out = f"decode_data/plots/Acc_{task_types}_feedback.npz"
 
 np.savez( fn_out,results = results, allow_pickle = True)
 
