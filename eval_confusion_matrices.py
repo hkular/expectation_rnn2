@@ -19,7 +19,7 @@ import torch
 #--------------------------
 # Basic model params
 #--------------------------
-task_type = 'rdk_repro_cue'                         # task type (conceptually think of as a motion discrimination task...)         
+task_type = 'rdk_reproduction'                         # task type (conceptually think of as a motion discrimination task...)         
 n_afc = 6                                           # number of stimulus alternatives
 T = 210                                             # timesteps in each trial
 cue_on = 75                                          # 0(start) or 75(stim offset)
@@ -61,7 +61,7 @@ task = RDKtask( settings )
 #--------------------------
 cue_onsets = [0, 75]
 cue_layer = 3
-stim_probs = [ 0.7]
+stim_probs = [1/n_afc, 0.7]
 fb21_scalars = [1.0,0.7]
 fb32_scalars = [1.0,0.7]
 valid_combos = list(product(fb21_scalars, fb32_scalars))

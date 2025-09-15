@@ -11,7 +11,7 @@ import itertools
 import os
 
 
-task_type = 'rdk_reproduction'
+task_type = 'rdk_repro_cue'
 classes = 'stim'
 n_afc = 6
 stim_amp_train = 1.0
