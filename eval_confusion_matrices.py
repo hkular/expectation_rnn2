@@ -107,19 +107,18 @@ for stim_prob in stim_probs:
                      sr_scram_list = rnn_settings['sr_scram']
                      sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
                      sr_scram = np.array(sr_scram_list)
-                     
                      cues = mod_data['cues'][m_num,:]
                      c_label = np.array(cues, dtype=int)
+
                      
                  else:
                      sr_scram = []
+                     
                     
                  # get labels
                  y_true = mod_data['stim_label'][m_num, stim_on,:].astype(int)
                  y_out = mod_data['outputs'][m_num,:]         
-                 outputs = torch.from_numpy(y_out)
-                 s_label = np.zeros((batch_size, n_afc), dtype=int)
-                 s_label[np.arange(batch_size), y_true] = 1
+                 outputs = torch.from_numpy(y_out)                
                  m_acc = mod_data['m_acc'][m_num]
                  tbt_acc = mod_data['tbt_acc'][m_num,:]
                  
@@ -180,15 +179,15 @@ for stim_prob in stim_probs:
                  # row_sums = cm.sum(axis=1)[:, np.newaxis]
                  # cm_norm = np.divide(cm.astype(float), row_sums, where=row_sums!=0)
                                   
-                 vals, counts = np.unique(y_guess, return_counts=True)
+                 # vals, counts = np.unique(y_guess, return_counts=True)
 
-                 # Filter only values >= -1
-                 mask = vals >= -1
-                 vals = vals[mask].astype(int)      # ensure integers for dict keys
-                 counts = counts[mask]
+                 # # Filter only values >= -1
+                 # mask = vals >= -1
+                 # vals = vals[mask].astype(int)      # ensure integers for dict keys
+                 # counts = counts[mask]
                 
-                 # Turn into dictionary {value: count}
-                 guess_types = dict(zip(vals, counts))
+                 # # Turn into dictionary {value: count}
+                 # guess_types = dict(zip(vals, counts))
             
                  results.append({
                     'stim_prob': int(100*stim_prob),
@@ -198,7 +197,7 @@ for stim_prob in stim_probs:
                     'fb21_scalar':fb21_scalar,
                     'fb32_scalar':fb32_scalar,
                     'eval_acc': mod_data['m_acc'][m_num],
-                    'guess_types': guess_types, 
+                    #'guess_types': guess_types, 
                     'err_types': err_types
                     })
 
