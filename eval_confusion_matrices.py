@@ -64,6 +64,7 @@ cue_layer = 3
 stim_probs = [1/n_afc, 0.7]
 fb21_scalars = [1.0,0.7]
 fb32_scalars = [1.0,0.7]
+eval_noises = [0.1, 0.6]
 valid_combos = list(product(fb21_scalars, fb32_scalars))
 
 results = []
@@ -76,134 +77,135 @@ for stim_prob in stim_probs:
     
     for cue_on in cue_onsets:
         
+        for stim_noise_eval in eval_noises:
+            for fb21_scalar, fb32_scalar in valid_combos:
         
-        for fb21_scalar, fb32_scalar in valid_combos:
-    
-             # load the correct model
-             if task_type == "rdk_repro_cue":
-                 if stim_prob == 0.7:
-                     fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-                 else:
-                     fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-             elif task_type == "rdk_reproduction":
-                if stim_prob == 0.7:
-                    fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-                else:
-                    fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
-
-             mod_data = np.load(fn, allow_pickle=True) 
-             print(f"Loaded {fn}, keys: {mod_data.files}")
-             
-             # loop over models
-             for m_num in np.arange(n_models):
-                
-                 # load model
-                 fn_mod = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_nw_mse_modnum-{m_num}.pt'
-                 
-                 if task_type == 'rdk_repro_cue':
-                     # load model sr_scram
-                     with open(f'{fn_mod[:-3]}.json', "r") as infile:
-                        _ , rnn_settings = json.load(infile)
-                     sr_scram_list = rnn_settings['sr_scram']
-                     sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
-                     sr_scram = np.array(sr_scram_list)
-                     cues = mod_data['cues'][m_num,:]
-                     c_label = np.array(cues, dtype=int)
-
-                     
-                 else:
-                     sr_scram = []
-                     
-                    
-                 # get labels
-                 y_true = mod_data['stim_label'][m_num, stim_on,:].astype(int)
-                 y_out = mod_data['outputs'][m_num,:]         
-                 outputs = torch.from_numpy(y_out)                
-                 m_acc = mod_data['m_acc'][m_num]
-                 tbt_acc = mod_data['tbt_acc'][m_num,:]
-                 
-       
-                 y_pred = np.full((batch_size),np.nan)
-                 y_guess = np.full((batch_size),np.nan)
-                 for nt in range(batch_size):
-                                      
-                     if tbt_acc[nt] == 1:
-                         y_pred[nt] = y_true[nt]
-                         y_guess[nt] = -6                          
+                 # load the correct model
+                 if task_type == "rdk_repro_cue":
+                     if stim_prob == 0.7:
+                         fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
                      else:
-                         non_targ = np.setdiff1d(np.arange(6), y_true[nt]) 
-                         # classify errors
-                         above = np.where(np.mean(y_out[stim_on:,nt,:], axis = 0) >= acc_amp_thresh)[0]
-                         below = np.where(np.mean(y_out[stim_on:,nt,:], axis = 0) >= 0.65)[0]
+                         fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_cueon-{cue_on}_ncues-{num_cues}_cuelayer-{cue_layer}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+                 elif task_type == "rdk_reproduction":
+                    if stim_prob == 0.7:
+                        fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+                    else:
+                        fn = f'decode_data/{task_type}_decode_{classes}_{n_afc}afc_stim_prob{int(stim_prob * 100)}_stim_prob_eval-{int(stim_prob_eval*100)}_trnamp-{stim_amp_train}_evalamp-{stim_amp_eval}_trnnoise-{stim_noise_train}_evalnoise-{stim_noise_eval}_trnint-{int_noise_train}_evalint-{int_noise_eval}_T-{T}_nw_mse_fb21_s{fb21_scalar}_fb32_s{fb32_scalar}.npz'
+    
+                 mod_data = np.load(fn, allow_pickle=True) 
+                 print(f"Loaded {fn}, keys: {mod_data.files}")
+                 
+                 # loop over models
+                 for m_num in np.arange(n_models):
+                    
+                     # load model
+                     fn_mod = f'{fn_stem}num_afc-{n_afc}_stim_prob-{int( stim_prob_train * 100 )}_stim_amp-{int( stim_amp_train * 100 )}_stim_noise-{int( stim_noise_train * 100 )}_h_bias_trainable-1_nw_mse_modnum-{m_num}.pt'
+                     
+                     if task_type == 'rdk_repro_cue':
+                         # load model sr_scram
+                         with open(f'{fn_mod[:-3]}.json', "r") as infile:
+                            _ , rnn_settings = json.load(infile)
+                         sr_scram_list = rnn_settings['sr_scram']
+                         sr_scram_list = [sr_scram_list[str(s)] for s in sorted(sr_scram_list.keys(), key=int)]
+                         sr_scram = np.array(sr_scram_list)
+                         cues = mod_data['cues'][m_num,:]
+                         c_label = np.array(cues, dtype=int)
+    
                          
-
-                         if len(above) == 0:
-                             y_pred[nt] = 6# no response
-                             if len(below)==0:
-                                 y_guess[nt] = -1
-                                 err_types["no_response"] += 1
+                     else:
+                         sr_scram = []
+                         
+                        
+                     # get labels
+                     y_true = mod_data['stim_label'][m_num, stim_on,:].astype(int)
+                     y_out = mod_data['outputs'][m_num,:]         
+                     outputs = torch.from_numpy(y_out)                
+                     m_acc = mod_data['m_acc'][m_num]
+                     tbt_acc = mod_data['tbt_acc'][m_num,:]
+                     
+           
+                     y_pred = np.full((batch_size),np.nan)
+                     y_guess = np.full((batch_size),np.nan)
+                     for nt in range(batch_size):
+                                          
+                         if tbt_acc[nt] == 1:
+                             y_pred[nt] = y_true[nt]
+                             y_guess[nt] = -6                          
+                         else:
+                             non_targ = np.setdiff1d(np.arange(6), y_true[nt]) 
+                             # classify errors
+                             above = np.where(np.mean(y_out[stim_on:,nt,:], axis = 0) >= acc_amp_thresh)[0]
+                             below = np.where(np.mean(y_out[stim_on:,nt,:], axis = 0) >= 0.65)[0]
+                             
+    
+                             if len(above) == 0:
+                                 y_pred[nt] = 6# no response
+                                 if len(below)==0:
+                                     y_guess[nt] = -1
+                                     err_types["no_response"] += 1
+                                 else:
+                                     y_guess[nt] = np.argmax(np.mean(y_out[stim_on:,nt,non_targ], axis = 0), axis = 0)
+                                     err_types["sub_thresh_response"]+=1
+                             elif len(above) > 2:
+                                 y_guess[nt] = np.argmax(np.mean(y_out[stim_on:,nt,non_targ], axis = 0), axis = 0)
+                                 y_pred[nt] = 7  # multiple response                             
+                                 err_types["multiple_response"] += 1
                              else:
                                  y_guess[nt] = np.argmax(np.mean(y_out[stim_on:,nt,non_targ], axis = 0), axis = 0)
-                                 err_types["sub_thresh_response"]+=1
-                         elif len(above) > 2:
-                             y_guess[nt] = np.argmax(np.mean(y_out[stim_on:,nt,non_targ], axis = 0), axis = 0)
-                             y_pred[nt] = 7  # multiple response                             
-                             err_types["multiple_response"] += 1
-                         else:
-                             y_guess[nt] = np.argmax(np.mean(y_out[stim_on:,nt,non_targ], axis = 0), axis = 0)
-                             y_pred[nt] = 8  # wrong single response
-                             err_types["wrong_response"] += 1
-
-
-
-                 # # y_pred = np.argmax(np.mean(y_out[stim_on:,:,:], axis = 0), axis = 1)
-                 
-                 # # Step 2. Unscramble y_pred by inverting the mapping
-                 # # For each cue, invert the mapping once
-                 # unscramble = np.zeros_like(sr_scram)
-                 # for c in range(sr_scram.shape[0]):
-                 #     for stim in range(sr_scram.shape[1]):
-                 #         scrambled_label = sr_scram[c, stim]
-                 #         unscramble[c, scrambled_label] = stim
+                                 y_pred[nt] = 8  # wrong single response
+                                 err_types["wrong_response"] += 1
+    
+    
+    
+                     # # y_pred = np.argmax(np.mean(y_out[stim_on:,:,:], axis = 0), axis = 1)
+                     
+                     # # Step 2. Unscramble y_pred by inverting the mapping
+                     # # For each cue, invert the mapping once
+                     # unscramble = np.zeros_like(sr_scram)
+                     # for c in range(sr_scram.shape[0]):
+                     #     for stim in range(sr_scram.shape[1]):
+                     #         scrambled_label = sr_scram[c, stim]
+                     #         unscramble[c, scrambled_label] = stim
+                    
+                     # # Step 3. Apply unscramble to model predictions
+                     # y_pred_unscrambled = np.array([unscramble[c, p] for c, p in zip(c_label, y_pred.astype(int))])
+     
+                     # cm_acc = (y_true == y_pred).sum()/batch_size
+                     # print(f'eval acc: {mod_data['m_acc'][m_num]}, cm acc: {cm_acc}')
+                    
+                     # # Compute confusion matrix
+                     # cm = confusion_matrix(y_true, y_pred, labels=np.unique(y_pred))
+                    
+                     # # Normalize (optional, per row)
+                     # row_sums = cm.sum(axis=1)[:, np.newaxis]
+                     # cm_norm = np.divide(cm.astype(float), row_sums, where=row_sums!=0)
+                                      
+                     # vals, counts = np.unique(y_guess, return_counts=True)
+    
+                     # # Filter only values >= -1
+                     # mask = vals >= -1
+                     # vals = vals[mask].astype(int)      # ensure integers for dict keys
+                     # counts = counts[mask]
+                    
+                     # # Turn into dictionary {value: count}
+                     # guess_types = dict(zip(vals, counts))
                 
-                 # # Step 3. Apply unscramble to model predictions
-                 # y_pred_unscrambled = np.array([unscramble[c, p] for c, p in zip(c_label, y_pred.astype(int))])
- 
-                 # cm_acc = (y_true == y_pred).sum()/batch_size
-                 # print(f'eval acc: {mod_data['m_acc'][m_num]}, cm acc: {cm_acc}')
-                
-                 # # Compute confusion matrix
-                 # cm = confusion_matrix(y_true, y_pred, labels=np.unique(y_pred))
-                
-                 # # Normalize (optional, per row)
-                 # row_sums = cm.sum(axis=1)[:, np.newaxis]
-                 # cm_norm = np.divide(cm.astype(float), row_sums, where=row_sums!=0)
-                                  
-                 # vals, counts = np.unique(y_guess, return_counts=True)
+                     results.append({
+                        'stim_prob': int(100*stim_prob),
+                        'cue_on': cue_on,
+                        'cue_layer': cue_layer,
+                        'model': m_num,
+                        'eval_noise':stim_noise_eval,
+                        'fb21_scalar':fb21_scalar,
+                        'fb32_scalar':fb32_scalar,
+                        'eval_acc': mod_data['m_acc'][m_num],
+                        #'guess_types': guess_types, 
+                        'err_types': err_types
+                        })
+    
+    
 
-                 # # Filter only values >= -1
-                 # mask = vals >= -1
-                 # vals = vals[mask].astype(int)      # ensure integers for dict keys
-                 # counts = counts[mask]
-                
-                 # # Turn into dictionary {value: count}
-                 # guess_types = dict(zip(vals, counts))
-            
-                 results.append({
-                    'stim_prob': int(100*stim_prob),
-                    'cue_on': cue_on,
-                    'cue_layer': cue_layer,
-                    'model': m_num,
-                    'fb21_scalar':fb21_scalar,
-                    'fb32_scalar':fb32_scalar,
-                    'eval_acc': mod_data['m_acc'][m_num],
-                    #'guess_types': guess_types, 
-                    'err_types': err_types
-                    })
-
-
-
-fn_out = f"decode_data/plots/Acc_{task_types}_feedback.npz"
+fn_out = f"decode_data/plots/Acc_{task_type}_feedback.npz"
 
 np.savez( fn_out,results = results, allow_pickle = True)
 
@@ -212,7 +214,7 @@ np.savez( fn_out,results = results, allow_pickle = True)
 if plots == True:
     
     
-    data = np.load(f"decode_data/plots/CM_{classes}_{task}_feedback.npz", allow_pickle = True)
+    data = np.load(f"decode_data/plots/Acc_{task_type}_feedback.npz", allow_pickle = True)
     results = data['results']
     results_list = [item for item in results]  # Convert back to list
     df = pd.DataFrame(results_list)
