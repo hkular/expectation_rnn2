@@ -125,6 +125,7 @@ for stim_prob in stim_probs:
                             # calculate AUC
                             area_exp = trapezoid(mod_data['stim_acc'][m, l, 0, :][stim_offset_win:], t[stim_offset_win:])
                             area_unexp = trapezoid(np.mean(mod_data['stim_acc'][m, l, 1:, :], axis = 0)[stim_offset_win:], t[stim_offset_win:])
+
                             
                             results.append({
                                 'stim_prob': int(100*stim_prob),
@@ -134,16 +135,20 @@ for stim_prob in stim_probs:
                                 'layer': l+1,
                                 'fb21_scalar':fb21_scalar,
                                 'fb32_scalar':fb32_scalar,
+                                'over_acc': mod_data['over_acc'][m, l,:],
                                 'AUC_exp': area_exp,
                                 'AUC_unexp': area_unexp,
                                 'delta_AUC': (area_exp)-(area_unexp),
                                 'eval_acc': mod_data['m_acc'][m],
-                                'stim_noise': stim_noise_eval,
+                                'stim_noise': stim_noise_eval
                                 })
 
 # Close connections
 #sftp.close()
 #ssh.close()
+fn_out = f"decode_data/plots/D_AUC_{classes}_repro_cue_feedback.npz"
+
+np.savez( fn_out,results=results)
 
 
 if plots:
@@ -968,7 +973,4 @@ if plots:
 print('\007') # make a sound   
 print(f'finished {settings}')
 
-fn_out = f"decode_data/plots/D_AUC_{classes}_stimprob_x_cueon_cuelayer3_feedback.npz"
-
-np.savez( fn_out,results=results)
 

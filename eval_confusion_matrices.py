@@ -213,7 +213,10 @@ np.savez( fn_out,results = results, allow_pickle = True)
 
 if plots == True:
     
-    
+    from scipy.stats import sem
+    from statannotations.Annotator import Annotator
+    from itertools import combinations
+    from statsmodels.stats.anova import AnovaRM
     data = np.load(f"decode_data/plots/Acc_{task_type}_feedback.npz", allow_pickle = True)
     results = data['results']
     results_list = [item for item in results]  # Convert back to list
@@ -228,20 +231,81 @@ if plots == True:
         categories=['Start', 'Stim Offset'],
         ordered=True
     )
+    df['stim_noise']=df['eval_noise']
     
     
-    # subset data
-    df_ex = df[(df['stim_prob']=='Unbiased') &
-               (df['fb21_scalar']==1.0) &
-               (df['fb32_scalar']==1.0) &
-               (df['cue_on']=='Start') &
-               (df['model']==19) &
-               (df['cue_layer']=='3')]
+
+    df_ex = df[(df['fb21_scalar']==1.0) &
+               (df['fb32_scalar']==1.0)]
+    # Compute delta AUC averaged across layers
+    agg = (
+        df_ex.groupby(['stim_prob', 'stim_noise'])
+        .agg(mean_acc=('eval_acc', 'mean'),
+             sem_acc=('eval_acc', sem))
+        .reset_index()
+    )
     
-    # Plot heatmap
-    sns.heatmap(df_ex['cm_norm'].iloc[0], annot=True, fmt=".2f", cmap="viridis",
-                xticklabels=[f"Resp {i}" for i in range(6)],
-                yticklabels=[f"Stim {i}" for i in range(6)])
-    plt.xlabel("Model Response")
-    plt.ylabel("True Stimulus")
+    # aesthetics
+    sns.set(style="ticks", context="talk")
+    hue_order = list(np.unique(df['stim_noise']))
+    x_order = sorted(df_ex['stim_prob'].unique(), reverse=True)
+    discrete_palette = sns.color_palette('deep', n_colors=len(hue_order))
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    # Barplot
+    sns.barplot(
+        data=agg,
+        x="stim_prob", y="mean_acc",
+        hue="stim_noise",
+        palette=discrete_palette,
+        order=x_order, hue_order=hue_order,
+        errorbar=None, ax=ax
+    )
+    # Add custom error bars
+    bar_width = 0.8
+    n_hues = len(hue_order)
+    width_per_bar = bar_width / n_hues
+
+    for i, row in agg.iterrows():
+        prob = row['stim_prob']
+        noise = row['stim_noise']
+        mean = row['mean_acc']
+        err = row['sem_acc']
+        xloc = x_order.index(prob)
+        hloc = hue_order.index(noise)
+        bar_center = xloc - bar_width/2 + width_per_bar/2 + hloc * width_per_bar
+        ax.errorbar(x=bar_center, y=mean, yerr=err, fmt='none', c='black', capsize=5)
+
+    # Labels and cleanup
+    ax.set_ylabel("Eval Accuracy")
+    ax.set_xlabel("")
+    ax.axhline(y=(1/6), color = '#800020',ls = '--', label = 'chance', lw =1.5)
+    sns.despine()
+    #plt.ylim(-2,20)
+    # Legend (same style as before, no box)
+    ax.legend(title='Stimulus Noise',
+              bbox_to_anchor=(0.9, 0.5),
+              loc='center left',
+              frameon=False)
+    plt.tight_layout()
+    plt.savefig("iclr26_figs/SuppFig1.svg", format="svg", bbox_inches="tight")
+    plt.savefig("iclr26_figs/SuppFig1.eps", format="eps", bbox_inches="tight")
+    plt.savefig("iclr26_figs/SuppFig1.png", format="png", bbox_inches="tight")
     plt.show()
+
+
+    # stats
+    aovrm = AnovaRM(df_ex, depvar='eval_acc', subject='model', within=['stim_noise','stim_prob'], aggregate_func='mean')
+    res = aovrm.fit()
+    print(res)
+    
+    # mean and sd
+    agg = (
+        df_ex.groupby(['stim_prob'])
+        .agg(mean_acc=('eval_acc', 'mean'),
+             sd_acc=('eval_acc', np.std))
+        .reset_index()
+    )
+    
+    
+    

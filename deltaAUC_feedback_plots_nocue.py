@@ -124,6 +124,7 @@ for stim_prob in stim_probs:
                             'layer': l+1,
                             'fb21_scalar':fb21_scalar,
                             'fb32_scalar':fb32_scalar,
+                            'over_acc': mod_data['over_acc'][m, l,:],
                             'AUC_exp': area_exp,
                             'AUC_unexp': area_unexp,
                             'delta_AUC': (area_exp)-(area_unexp),
